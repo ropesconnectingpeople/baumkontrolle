@@ -188,6 +188,21 @@ table.mini td{padding:8px;border-bottom:1px solid #eee}
 table.mini tr:last-child td{border-bottom:0}
 
 .trenner{height:1px;background:var(--rand);margin:14px 0}
+.mehrknopf{width:100%;background:#f6f8f6;border:1px solid var(--rand);border-radius:9px;
+  padding:11px;font-size:14px;font-weight:700;color:var(--gruen);min-height:44px;
+  display:flex;align-items:center;justify-content:center;gap:7px;margin-top:2px}
+.mehrknopf .pfeil{font-size:11px;transition:transform .15s}
+.mehrknopf.offen .pfeil{transform:rotate(180deg)}
+.mehrblock{margin-top:11px}
+.mehrblock[hidden]{display:none}
+.wahlreihe{display:grid;grid-template-columns:1fr 1fr;gap:9px}
+.wahlreihe label{display:flex;align-items:center;gap:9px;padding:11px 12px;border:1px solid var(--rand);
+  border-radius:9px;background:#fff;font-size:14.5px;text-transform:none;letter-spacing:0;
+  color:var(--text);font-weight:500;margin:0;min-height:46px}
+.wahlreihe label.an{border-color:var(--gruen);background:var(--gruen-l);font-weight:700;
+  color:var(--gruen)}
+.wahlreihe input{width:20px;height:20px;min-height:20px;margin:0;flex-shrink:0;
+  accent-color:var(--gruen)}
 .pill{display:inline-block;background:var(--gruen-l);color:var(--gruen);font-size:12px;
   font-weight:700;padding:3px 9px;border-radius:8px;margin:0 5px 5px 0}
 .warnkasten{background:#fdf6e3;border-left:3px solid var(--gelb);padding:10px 12px;
@@ -252,6 +267,18 @@ table.mini tr:last-child td{border-bottom:0}
         <div class="feld"><label>Belaubungszustand</label><select id="a_belaubung"></select></div>
         <div class="feld"><label>Witterung</label><select id="a_witterung"></select></div>
       </div>
+      <div class="feld">
+        <label>Erfassungsrichtung</label>
+        <div class="wahlreihe">
+          <label id="richtungMit"><input type="radio" name="richtung" value="im Uhrzeigersinn"
+            onchange="App.richtung(this.value)">im Uhrzeigersinn</label>
+          <label id="richtungGegen"><input type="radio" name="richtung" value="gegen den Uhrzeigersinn"
+            onchange="App.richtung(this.value)">gegen den Uhrzeigersinn</label>
+        </div>
+        <div class="hinweis">Vom Zugang aus in einer Richtung durchgehen. Steht im Protokoll und
+          macht die Reihenfolge bei der Folgekontrolle nachvollziehbar – wichtig überall dort,
+          wo keine Nummern am Baum hängen.</div>
+      </div>
     </div>
   </div>
 
@@ -263,16 +290,9 @@ table.mini tr:last-child td{border-bottom:0}
       <div class="feld" id="qualFreitextFeld" style="display:none">
         <label>Bezeichnung</label><input id="a_qualifikationFrei"
           placeholder="Wie soll die Qualifikation im Protokoll stehen?"></div>
-      <div class="zeile">
-        <div class="feld"><label>Geprüft (MM/JJJJ)</label><input id="a_pruefung"
-          placeholder="11/2015" inputmode="numeric"></div>
-        <div class="feld"><label>Ausbildungsinstitut</label><input id="a_institut"
-          placeholder="z. B. Baumpflegeschule Busemann"></div>
-      </div>
       <div class="hinweis">Name, Qualifikation und Datum sind Pflichtangaben der Dokumentation
         und stehen auf jedem Protokollblatt. Es gibt keine gesetzliche Regelung, wer
-        Baumkontrollen durchführen darf – maßgeblich ist die nachweisbare Fachkunde. Prüfungsjahr
-        und Institut machen sie überprüfbar; eine Zertifikatsnummer vergibt die FLL nicht.</div>
+        Baumkontrollen durchführen darf – maßgeblich ist die nachweisbare Fachkunde.</div>
     </div>
   </div>
 
@@ -284,11 +304,7 @@ table.mini tr:last-child td{border-bottom:0}
   <div class="karte">
     <h2>Baum</h2>
     <div class="inhalt">
-      <div class="zeile drei">
-        <div class="feld"><label>Baum-Nr.</label><input id="b_nr"></div>
-        <div class="feld"><label>Stammzahl</label><input type="number" id="b_stammzahl" min="1" value="1"></div>
-        <div class="feld"><label>Alter (Jahre)</label><input id="b_alter" placeholder="ca."></div>
-      </div>
+      <div class="feld"><label>Baum-Nr.</label><input id="b_nr"></div>
       <div class="feld"><label>Baumart</label>
         <button class="wahl" id="b_artKnopf" onclick="App.artWahl()">
           <b id="b_artDt">Art wählen</b><span id="b_artBot"></span></button>
@@ -296,33 +312,43 @@ table.mini tr:last-child td{border-bottom:0}
       <div class="zeile drei">
         <div class="feld"><label>Höhe (m)</label><input type="number" id="b_hoehe" inputmode="decimal"></div>
         <div class="feld"><label>Krone Ø (m)</label><input type="number" id="b_kroneD" inputmode="decimal"></div>
-        <div class="feld"><label>Kronenansatz (m)</label><input type="number" id="b_kronenansatz" inputmode="decimal"></div>
+        <div class="feld"><label>Umfang (cm)</label><input type="number" id="b_stammumfang" inputmode="decimal"></div>
       </div>
-      <div class="zeile">
-        <div class="feld"><label>Stammumfang (cm)</label><input type="number" id="b_stammumfang" inputmode="decimal"></div>
-        <div class="feld"><label>Messhöhe</label><select id="b_messhoehe">
+      <button class="mehrknopf" id="knopfBaum" onclick="App.mehr('Baum')">
+        <span class="text">Weitere Angaben</span><span class="pfeil">&#9660;</span></button>
+      <div class="mehrblock" id="mehrBaum" hidden>
+        <div class="zeile drei">
+          <div class="feld"><label>Stammzahl</label><input type="number" id="b_stammzahl" min="1" value="1"></div>
+          <div class="feld"><label>Kronenansatz (m)</label><input type="number" id="b_kronenansatz" inputmode="decimal"></div>
+          <div class="feld"><label>Alter (Jahre)</label><input id="b_alter" placeholder="ca."></div>
+        </div>
+        <div class="feld"><label>Messhöhe Stammumfang</label><select id="b_messhoehe">
           <option value="1,00 m">1,00 m (FLL)</option><option value="1,30 m">1,30 m (BHD)</option></select></div>
+        <div class="hinweis">Höhe und Kronenbreite dürfen nach FLL um ± 2 m abweichen.
+          Die Messhöhe wird auf dem Protokoll mitgeführt.</div>
       </div>
-      <div class="hinweis">Höhe und Kronenbreite dürfen nach FLL um ± 2 m abweichen.
-        Die Messhöhe wird auf dem Protokoll mitgeführt.</div>
     </div>
   </div>
 
   <div class="karte">
     <h2>Standort</h2>
     <div class="inhalt">
+      <div class="feld"><label>Lagebeschreibung</label><input id="b_lage"
+        placeholder="Straße oder z. B. Nordwestecke, neben Gartenhaus"></div>
       <div class="zeile">
-        <div class="feld"><label>Straße</label><input id="b_strasse"></div>
         <div class="feld"><label>Haus-Nr.</label><input id="b_hausNr"></div>
-      </div>
-      <div class="zeile">
-        <div class="feld"><label>Flurstück</label><input id="b_flurstueck"></div>
         <div class="feld"><label>Baumumfeld</label><select id="b_umfeld"></select></div>
       </div>
-      <div class="feld"><label>Koordinaten</label>
-        <div class="zeile"><input id="b_gpsLat" placeholder="Breite"><input id="b_gpsLon" placeholder="Länge"></div>
-      </div>
       <button class="btn zweit" onclick="App.gps()">Standort per GPS übernehmen</button>
+      <div class="hinweis" id="gpsAnzeige"></div>
+      <button class="mehrknopf" id="knopfOrt" onclick="App.mehr('Ort')">
+        <span class="text">Weitere Angaben</span><span class="pfeil">&#9660;</span></button>
+      <div class="mehrblock" id="mehrOrt" hidden>
+        <div class="feld"><label>Flurstück</label><input id="b_flurstueck"></div>
+        <div class="feld"><label>Koordinaten</label>
+          <div class="zeile"><input id="b_gpsLat" placeholder="Breite"><input id="b_gpsLon" placeholder="Länge"></div>
+        </div>
+      </div>
     </div>
   </div>
 
@@ -1313,8 +1339,9 @@ var App = (function () {
       auftrag: {
         auftraggeber: '', objekt: '', auftragsNr: '', kontrollart: 'Regelkontrolle',
         datum: heuteISO(), datumBis: '', belaubung: 'belaubt', witterung: 'trocken, bedeckt',
+        erfassungsrichtung: '',
         kontrolleur: '', qualifikation: 'FLL-zertifizierter Baumkontrolleur',
-        qualifikationFrei: '', pruefung: '', institut: '',
+        qualifikationFrei: '',
         berichtsdatum: heuteISO()
       },
       baeume: [],
@@ -1322,7 +1349,8 @@ var App = (function () {
       einstellungen: {
         name: 'Baumpflege Hundertmark',
         zusatz: 'Fachbetrieb für Baumpflege · Baumkontrolle · Verkehrssicherheit',
-        anschrift: '', kontakt: '', ust: 19, stundensatz: 85
+        anschrift: '', kontakt: '', ust: 19, stundensatz: 85,
+        mehrBaum: false, mehrOrt: false
       },
       preise: null,               // null = Standardpreise aus DATA
       seitSicherung: 0            // Bäume seit der letzten abgelegten Sicherung
@@ -1505,8 +1533,7 @@ var App = (function () {
   function auftragLesen() {
     var a = S.auftrag;
     ['auftraggeber','objekt','auftragsNr','kontrollart','datum','datumBis','belaubung',
-     'witterung','kontrolleur','qualifikation','qualifikationFrei','pruefung',
-     'institut'].forEach(function (k) {
+     'witterung','kontrolleur','qualifikation','qualifikationFrei'].forEach(function (k) {
       a[k] = feldWert('a_' + k);
     });
     a.berichtsdatum = a.berichtsdatum || heuteISO();
@@ -1515,8 +1542,7 @@ var App = (function () {
   function auftragSchreiben() {
     var a = S.auftrag;
     ['auftraggeber','objekt','auftragsNr','kontrollart','datum','datumBis','belaubung',
-     'witterung','kontrolleur','qualifikation','qualifikationFrei','pruefung',
-     'institut'].forEach(function (k) {
+     'witterung','kontrolleur','qualifikation','qualifikationFrei'].forEach(function (k) {
       setzeFeld('a_' + k, a[k]);
     });
     qualFreitext();
@@ -1528,13 +1554,44 @@ var App = (function () {
     el('qualFreitextFeld').style.display = frei ? '' : 'none';
   }
 
+  /** Erfassungsrichtung – gilt fürs ganze Objekt, nicht für den einzelnen Baum. */
+  function richtung(wert) {
+    S.auftrag.erfassungsrichtung = (S.auftrag.erfassungsrichtung === wert) ? '' : wert;
+    richtungZeigen();
+    sichern();
+  }
+
+  function richtungZeigen() {
+    var wert = S.auftrag.erfassungsrichtung || '';
+    [['richtungMit', 'im Uhrzeigersinn'], ['richtungGegen', 'gegen den Uhrzeigersinn']]
+      .forEach(function (p) {
+        var lab = el(p[0]);
+        if (!lab) return;
+        lab.className = (wert === p[1]) ? 'an' : '';
+        lab.querySelector('input').checked = (wert === p[1]);
+      });
+  }
+
+  /** Klappblock „Weitere Angaben". Der Zustand bleibt erhalten – wer die
+   *  Felder braucht, klappt einmal auf und hat beim nächsten Baum Ruhe. */
+  function mehr(welcher, nurSetzen) {
+    var schluessel = 'mehr' + welcher,
+        block = el('mehr' + welcher),
+        knopf = el('knopf' + welcher);
+    if (!block || !knopf) return;
+    if (!nurSetzen) {
+      S.einstellungen[schluessel] = !S.einstellungen[schluessel];
+      sichern();
+    }
+    var offen = !!S.einstellungen[schluessel];
+    block.hidden = !offen;
+    knopf.className = 'mehrknopf' + (offen ? ' offen' : '');
+    knopf.querySelector('.text').textContent = offen ? 'Weniger anzeigen' : 'Weitere Angaben';
+  }
+
   /** So steht die Qualifikation auf dem Protokoll. */
   function qualifikationText(a) {
-    var q = a.qualifikation === 'sonstige' ? (a.qualifikationFrei || '') : (a.qualifikation || '');
-    var zusatz = [];
-    if (a.pruefung) zusatz.push('geprüft ' + a.pruefung);
-    if (a.institut) zusatz.push(a.institut);
-    return q + (zusatz.length ? ' · ' + zusatz.join(', ') : '');
+    return a.qualifikation === 'sonstige' ? (a.qualifikationFrei || '') : (a.qualifikation || '');
   }
 
   function zeichneAuftragKurz() {
@@ -1625,7 +1682,7 @@ var App = (function () {
     S.baeume.push({
       nr: nr, stammzahl: 1, artDt: '', artBot: '', hoehe: '', kroneD: '', stammumfang: '',
       messhoehe: '1,00 m', kronenansatz: '', alter: '',
-      strasse: S.baeume.length ? (S.baeume[S.baeume.length - 1].strasse || '') : '',
+      lage: S.baeume.length ? (S.baeume[S.baeume.length - 1].lage || '') : '',
       hausNr: '', flurstueck: '', umfeld: '', gpsLat: '', gpsLon: '',
       phase: 'Reifephase', zustand: 'gesund', erwartung: 'höher', roloff: '',
       intervallMatrix: '', intervall: '', intervallManuell: false, naechsteKontrolle: '',
@@ -1652,13 +1709,17 @@ var App = (function () {
     if (!b) return;
 
     ['nr','stammzahl','alter','hoehe','kroneD','kronenansatz','stammumfang','messhoehe',
-     'strasse','hausNr','flurstueck','umfeld','gpsLat','gpsLon','phase','zustand','erwartung',
+     'lage','hausNr','flurstueck','umfeld','gpsLat','gpsLon','phase','zustand','erwartung',
      'roloff','intervall','befundtext','grenzen','bemerkung'].forEach(function (k) {
       setzeFeld('b_' + k, b[k]);
     });
+    if (!b.lage && b.strasse) setzeFeld('b_lage', b.strasse);   /* aus früheren Fassungen */
     el('b_artDt').textContent = b.artDt || 'Art wählen';
     el('b_artBot').textContent = b.artBot || '';
 
+    mehr('Baum', true);
+    mehr('Ort', true);
+    gpsAnzeige();
     zeichneSymptome(b);
     zeichnePilz(b);
     zeichneGrenzenWahl();
@@ -1676,10 +1737,11 @@ var App = (function () {
     var b = S.baeume[aktuellerBaum];
     if (!b) return null;
     ['nr','stammzahl','alter','hoehe','kroneD','kronenansatz','stammumfang','messhoehe',
-     'strasse','hausNr','flurstueck','umfeld','gpsLat','gpsLon','phase','zustand','erwartung',
+     'lage','hausNr','flurstueck','umfeld','gpsLat','gpsLon','phase','zustand','erwartung',
      'roloff','intervall','befundtext','grenzen','bemerkung'].forEach(function (k) {
       b[k] = feldWert('b_' + k);
     });
+    delete b.strasse;
     b.intervallMatrix = feldWert('b_intervallMatrix');
     b.intervall = feldWert('b_intervall');
     b.naechsteKontrolle = el('b_naechsteKontrolle').dataset.iso || '';
@@ -1996,12 +2058,18 @@ var App = (function () {
   /* =========================================================================
    * GPS
    * ====================================================================== */
+  function gpsAnzeige() {
+    var lat = feldWert('b_gpsLat'), lon = feldWert('b_gpsLon'), f = el('gpsAnzeige');
+    if (f) f.textContent = (lat && lon) ? ('Erfasst: ' + lat + ' N · ' + lon + ' E') : '';
+  }
+
   function gps() {
     if (!navigator.geolocation) { melde('Dieses Gerät liefert keine Position.'); return; }
     melde('Position wird ermittelt …');
     navigator.geolocation.getCurrentPosition(function (p) {
       setzeFeld('b_gpsLat', p.coords.latitude.toFixed(5));
       setzeFeld('b_gpsLon', p.coords.longitude.toFixed(5));
+      gpsAnzeige();
       melde('Position übernommen (± ' + Math.round(p.coords.accuracy) + ' m).');
     }, function () {
       melde('Position nicht verfügbar. Standortfreigabe prüfen.');
@@ -2173,7 +2241,7 @@ var App = (function () {
       (b.massnahmen || []).forEach(function (m) {
         liste.push({
           nr: b.nr, art: b.artDt, hoehe: b.hoehe,
-          standort: [b.strasse, b.hausNr].filter(Boolean).join(' '),
+          standort: [b.lage || b.strasse, b.hausNr].filter(Boolean).join(' '),
           klasse: DATA.HOEHENKLASSEN[DATA.hoehenklasse(b.hoehe)],
           text: m.text, stufe: m.stufe,
           frist: m.frist ? 'bis ' + deDatum(m.frist) : '',
@@ -2405,6 +2473,7 @@ var App = (function () {
     sichern();
     blendeZu();
     auftragSchreiben();
+    richtungZeigen();
     zeige('liste');
     melde(alsFolge ? 'Folgekontrolle angelegt. Alle Bäume übernommen.' : 'Sicherung geladen.');
   }
@@ -2552,6 +2621,7 @@ var App = (function () {
     fuelleSelect('b_intervall', ['jährlich', '2 Jahre', '3 Jahre', 'keine gesonderte RK']);
 
     auftragSchreiben();
+    richtungZeigen();
     zeichneAuftragKurz();
     zeichneListe();
 
@@ -2572,8 +2642,8 @@ var App = (function () {
       S.auftrag.datum = this.value;
     });
     ['a_auftraggeber','a_objekt','a_auftragsNr','a_kontrollart','a_datum','a_datumBis',
-     'a_belaubung','a_witterung','a_kontrolleur','a_qualifikation','a_qualifikationFrei',
-     'a_pruefung','a_institut'].forEach(function (id) {
+     'a_belaubung','a_witterung','a_kontrolleur','a_qualifikation',
+     'a_qualifikationFrei'].forEach(function (id) {
       el(id).addEventListener('change', function () { auftragLesen(); sichern(); });
     });
     el('a_qualifikation').addEventListener('change', qualFreitext);
@@ -2626,7 +2696,7 @@ var App = (function () {
     symptomWechsel: symptomWechsel, grenzeAnfuegen: grenzeAnfuegen,
     massnahmeNeu: massnahmeNeu, massnahmeStufe: massnahmeStufe, massnahmeAnlegen: massnahmeAnlegen,
     massnahmeFeld: massnahmeFeld, massnahmeWeg: massnahmeWeg,
-    fotoWeg: fotoWeg, gps: gps,
+    fotoWeg: fotoWeg, gps: gps, mehr: mehr, richtung: richtung,
     blendeAuf: blendeAuf, blendeZu: blendeZu,
     pdf: pdf, excel: excel, excelKalkulation: excelKalkulation,
     angebot: angebot, auftragswert: auftragswert, posten: posten,
@@ -2663,8 +2733,7 @@ document.addEventListener('DOMContentLoaded', App.start);
  * PDF.erzeugen({
  *   auftrag: {
  *     auftraggeber, objekt, auftragsNr, kontrollart, datum, datumBis,
- *     belaubung, witterung, kontrolleur, qualifikation, qualifikationVoll,
- *     pruefung, institut, berichtsdatum
+ *     belaubung, witterung, kontrolleur, qualifikation, qualifikationVoll, berichtsdatum
  *   },
  *   baeume: [{
  *     nr, stammzahl, artDt, artBot,
@@ -2910,7 +2979,9 @@ var PDF = (function () {
       { lab: 'Belaubungszustand', val: a.belaubung },
       { lab: 'Witterung',    val: a.witterung },
       { lab: 'Baumkontrolleur', val: a.kontrolleur, span: 2 },
-      { lab: 'Qualifikation', val: a.qualifikationVoll || a.qualifikation, span: 2 }
+      { lab: 'Qualifikation', val: a.qualifikationVoll || a.qualifikation, span: 2 },
+      { lab: 'Erfassungsrichtung', val: a.erfassungsrichtung || '–', span: 2 },
+      { lab: 'Objekt-Nr. / Auftrag', val: a.auftragsNr || '–', span: 2 }
     ], y);
     y += 2.4;
 
@@ -2924,7 +2995,7 @@ var PDF = (function () {
       { lab: 'Stammumfang', val: b.stammumfang != null ? b.stammumfang + ' cm' : '',
         sub: '· gemessen in ' + (b.messhoehe || '1,00 m') },
       { lab: 'Kronenansatz', val: b.kronenansatz != null ? b.kronenansatz + ' m' : '' },
-      { lab: 'Standort', val: [b.strasse, b.hausNr].filter(Boolean).join(' '), span: 2 },
+      { lab: 'Lagebeschreibung', val: [b.lage || b.strasse, b.hausNr].filter(Boolean).join(' '), span: 2 },
       { lab: 'Flurstück', val: b.flurstueck },
       { lab: 'Alter am Standort', val: b.alter },
       { lab: 'Baumumfeld', val: b.umfeld, span: 2 },
@@ -3837,6 +3908,7 @@ var XLS = (function () {
       ['Kontrollart', a.kontrollart],
       ['Kontrolldatum', a.datum + (a.datumBis ? ' bis ' + a.datumBis : '')],
       ['Belaubungszustand', a.belaubung],
+      ['Erfassungsrichtung', a.erfassungsrichtung || '–'],
       ['Witterung', a.witterung],
       ['Baumkontrolleur', a.kontrolleur],
       ['Qualifikation', a.qualifikationVoll || a.qualifikation],
@@ -3852,7 +3924,7 @@ var XLS = (function () {
     ], [26, 62]);
 
     /* --- Bestandsliste --- */
-    var kopf = ['Baum-Nr.', 'Baumart deutsch', 'Baumart botanisch', 'Stammzahl', 'Straße',
+    var kopf = ['Baum-Nr.', 'Baumart deutsch', 'Baumart botanisch', 'Stammzahl', 'Lagebeschreibung',
       'Haus-Nr.', 'Flurstück', 'Baumumfeld', 'Breite', 'Länge', 'Höhe (m)', 'Krone Ø (m)',
       'Stammumfang (cm)', 'Messhöhe', 'Kronenansatz (m)', 'Alter', 'Entwicklungsphase',
       'Zustand', 'Sicherheitserwartung', 'Vitalität Roloff', 'Intervall (FLL-Vorschlag)',
@@ -3862,7 +3934,7 @@ var XLS = (function () {
     var zeilen = [kopf].concat(baeume.map(function (b) {
       var mn = b.massnahmen || [],
           stufe = mn.length ? Math.min.apply(null, mn.map(function (m) { return m.stufe || 5; })) : null;
-      return [b.nr, b.artDt, b.artBot, b.stammzahl, b.strasse, b.hausNr, b.flurstueck, b.umfeld,
+      return [b.nr, b.artDt, b.artBot, b.stammzahl, b.lage || b.strasse, b.hausNr, b.flurstueck, b.umfeld,
         b.gpsLat, b.gpsLon, num(b.hoehe), num(b.kroneD), num(b.stammumfang), b.messhoehe,
         num(b.kronenansatz), b.alter, b.phase, b.zustand, b.erwartung, b.roloff,
         b.intervallMatrix, b.intervall, b.naechsteKontrolle, symptomText(b),
@@ -3878,7 +3950,7 @@ var XLS = (function () {
     alleM.sort(function (x, z) { return (x.m.stufe || 9) - (z.m.stufe || 9); });
     alleM.forEach(function (x) {
       mz.push([DRING[x.m.stufe] || '', x.m.stufe || '', x.b.nr, x.b.artDt,
-        [x.b.strasse, x.b.hausNr].filter(Boolean).join(' '),
+        [x.b.lage || x.b.strasse, x.b.hausNr].filter(Boolean).join(' '),
         x.m.text, x.m.frist, x.m.begruendung, '', '']);
     });
     blatt(mappe, 'Maßnahmen', mz, [26, 7, 9, 20, 24, 38, 18, 46, 13, 26]);
@@ -3913,7 +3985,7 @@ var XLS = (function () {
     var tz = [['Baum-Nr.', 'Baumart', 'Standort', 'Zustand', 'Intervall',
                'Nächste Regelkontrolle', 'Grundlage']];
     baeume.forEach(function (b) {
-      tz.push([b.nr, b.artDt, [b.strasse, b.hausNr].filter(Boolean).join(' '), b.zustand,
+      tz.push([b.nr, b.artDt, [b.lage || b.strasse, b.hausNr].filter(Boolean).join(' '), b.zustand,
         b.intervall, b.naechsteKontrolle, DATA.intervallGrundlage(b.intervall)]);
     });
     blatt(mappe, 'Kontrolltermine', tz, [9, 20, 24, 18, 16, 20, 56]);
