@@ -176,6 +176,18 @@ button{font-family:inherit;cursor:pointer}
   justify-content:center;cursor:pointer}
 .farbkachel.aktiv{border-color:#1a1a1a;box-shadow:0 0 0 2px #fff inset}
 
+.kszeile{border:1px solid var(--rand);border-radius:11px;padding:11px;margin-bottom:10px;
+  background:#fbfcfb}
+.kszeile .kopf{display:flex;align-items:center;gap:9px;margin-bottom:7px}
+.kszeile .farbpunkt{width:18px;height:18px;border-radius:5px;flex-shrink:0;
+  border:1px solid rgba(0,0,0,.18)}
+.kszeile .kopf b{flex:1;font-size:14.5px}
+.kszeile .weg{background:none;border:0;color:#b9bcb9;font-size:18px;padding:2px 6px}
+.kszeile .zeile2{font-size:12.5px;color:var(--weich);line-height:1.45}
+.jahrzeile{display:flex;align-items:center;gap:10px;padding:11px 12px;border:1px solid var(--rand);
+  border-radius:10px;margin-bottom:7px;background:#fff;width:100%;text-align:left;min-height:52px}
+.jahrzeile b{font-size:16px;min-width:52px}
+.jahrzeile .info{flex:1;font-size:12.5px;color:var(--weich);line-height:1.35}
 .ampel{display:inline-block;padding:2px 8px;border-radius:6px;font-size:11.5px;font-weight:700}
 .a-gruen{background:#e3f0e3;color:#2d5a3d} .a-gelb{background:#fbf3d6;color:#7a6410}
 .a-orange{background:#fdeadb;color:#8a4a12} .a-rot{background:#fbe4e4;color:#8f2020}
@@ -236,6 +248,7 @@ table.mini tr:last-child td{border-bottom:0}
   </div>
 
   <button class="btn" onclick="App.neuerBaum()">+ Baum aufnehmen</button>
+  <button class="btn zweit" onclick="App.farbNachschlag()">Jahresfarbe Kronensicherung nachschlagen</button>
   <div class="btnreihe">
     <button class="btn zweit" onclick="App.zeige('ausgabe')">Ausgabe</button>
     <button class="btn zweit" onclick="App.zeige('einstellungen')">Einstellungen</button>
@@ -403,6 +416,15 @@ table.mini tr:last-child td{border-bottom:0}
       <textarea id="b_grenzen" placeholder="Was war nicht oder nur eingeschränkt beurteilbar?"></textarea>
       <div class="hinweis">Eingeschränkte Beurteilbarkeit ausdrücklich dokumentieren –
         das ist im Streitfall der entscheidende Punkt.</div>
+    </div>
+  </div>
+
+  <div class="karte">
+    <h2>Kronensicherungen</h2>
+    <div class="inhalt">
+      <div id="ksListe"></div>
+      <button class="btn zweit" onclick="App.ksNeu()">+ Kronensicherung</button>
+      <button class="btn zweit" onclick="App.farbNachschlag()">Jahresfarbe nachschlagen</button>
     </div>
   </div>
 
@@ -1688,7 +1710,7 @@ var App = (function () {
       intervallMatrix: '', intervall: '', intervallManuell: false, naechsteKontrolle: '',
       befunde: { K: [], S: [], W: [], Wu: [], V: [] },
       pilz: null, grenzen: '', bemerkung: '', befundtext: '',
-      massnahmen: [], fotos: [], historie: []
+      massnahmen: [], ks: [], fotos: [], historie: []
     });
     baumOeffnen(S.baeume.length - 1);
   }
@@ -1724,6 +1746,7 @@ var App = (function () {
     zeichnePilz(b);
     zeichneGrenzenWahl();
     zeichneMassnahmen(b);
+    zeichneKS(b);
     zeichneFotos(b);
     zeichneHistorie(b);
     intervallRechnen();
@@ -2002,6 +2025,277 @@ var App = (function () {
     sichern();
   }
 
+
+  /* =========================================================================
+   * Kronensicherung
+   *
+   * Der Kontrolleur steht unterm Baum, sieht eine Farbe und weiß nicht, von
+   * wann sie ist. Der Zyklus ist acht Jahre lang – genauso lang wie die
+   * ZTV-Mindesteinsatzdauer. Gelb heißt deshalb entweder „dieses Jahr
+   * eingebaut" oder „vor acht Jahren eingebaut und fällig". Die App zeigt
+   * darum immer alle plausiblen Jahre mit Ampel, statt eines zu raten.
+   * ====================================================================== */
+
+  function jetztJahr() { return new Date().getFullYear(); }
+
+  function ksEinsatzdauer(hersteller) {
+    var h = DATA.KS_HERSTELLER.filter(function (x) { return x.name === hersteller; })[0];
+    return h ? h.dauer : 8;
+  }
+
+  /** Ampel aus Einbaujahr und Einsatzdauer. */
+  function ksAmpel(einbaujahr, dauer) {
+    if (!einbaujahr) return { klasse: 'a-grau', text: 'Einbaujahr unbekannt', rest: null };
+    var austausch = parseInt(einbaujahr, 10) + (parseInt(dauer, 10) || 8),
+        rest = austausch - jetztJahr();
+    if (rest < 0)  return { klasse: 'a-rot',    text: 'überschritten seit ' + austausch, rest: rest };
+    if (rest === 0) return { klasse: 'a-orange', text: 'Austausch fällig ' + austausch, rest: rest };
+    if (rest <= 2) return { klasse: 'a-gelb',   text: 'noch ' + rest + (rest === 1 ? ' Jahr' : ' Jahre'), rest: rest };
+    return { klasse: 'a-gruen', text: 'noch ' + rest + ' Jahre', rest: rest };
+  }
+
+  function ksFarbHex(name) {
+    var f = DATA.KS_FARBEN.filter(function (x) { return x.name === name; })[0];
+    return f ? f.hex : '#bbb';
+  }
+
+  /* --- Liste am Baum --- */
+  function zeichneKS(b) {
+    var liste = b.ks || [], box = el('ksListe');
+    if (!liste.length) {
+      box.innerHTML = '<div class="hinweis" style="margin-bottom:10px">' +
+        'Keine Kronensicherung erfasst.</div>';
+      return;
+    }
+    box.innerHTML = liste.map(function (k, i) {
+      var dauer = k.einsatzdauer || ksEinsatzdauer(k.hersteller),
+          a = ksAmpel(k.einbaujahr, dauer),
+          maengel = (k.maengel || []).length;
+      return '<div class="kszeile">' +
+        '<div class="kopf"><span class="farbpunkt" style="background:' + ksFarbHex(k.farbe) + '"></span>' +
+        '<b>' + esc(k.bezeichnung || k.system || 'Kronensicherung') + '</b>' +
+        '<span class="ampel ' + a.klasse + '">' + esc(a.text) + '</span>' +
+        '<button class="weg" onclick="App.ksWeg(' + i + ')">&times;</button></div>' +
+        '<div class="zeile2">' +
+        [k.einbaujahr ? 'Einbau ' + k.einbaujahr : 'Einbaujahr unbekannt',
+         k.farbe ? 'Farbe ' + k.farbe : '',
+         k.hersteller, k.bauart,
+         k.bruchlast ? k.bruchlast + ' t' : '',
+         k.anzahl ? k.anzahl + '×' : ''].filter(Boolean).map(esc).join(' · ') +
+        (maengel ? '<br><span style="color:#b03030;font-weight:600">' + maengel +
+          (maengel === 1 ? ' Mangel' : ' Mängel') + '</span>' : '') +
+        (k.bewertung ? ' · ' + esc(k.bewertung) : '') +
+        '</div>' +
+        '<div style="margin-top:8px"><button class="btn klein zweit" style="margin:0" ' +
+        'onclick="App.ksBearbeiten(' + i + ')">Bearbeiten</button></div></div>';
+    }).join('');
+  }
+
+  /* --- Neue Kronensicherung: erst die Farbe --- */
+  function ksNeu() {
+    ksIndex = null;
+    farbWahl(function (farbe, jahr) {
+      var b = S.baeume[aktuellerBaum];
+      if (!b.ks) b.ks = [];
+      b.ks.push({
+        farbe: farbe, einbaujahr: jahr, bezeichnung: '', system: DATA.KS_SYSTEM[0],
+        bauart: '', verbund: '', hersteller: 'unbekannt', bruchlast: '', anzahl: 1,
+        einsatzdauer: '', einbauhoehe: '', astbasis: '', maengel: [],
+        bewertung: 'funktionsfähig', bemerkung: ''
+      });
+      /* Befund K9 „vorhandene Kronensicherung" gehört dann zwingend gesetzt. */
+      if (!b.befunde) b.befunde = { K: [], S: [], W: [], Wu: [], V: [] };
+      if (b.befunde.K.indexOf('K9') < 0) b.befunde.K.push('K9');
+      zeichneSymptome(b);
+      sichern();
+      ksBearbeiten(b.ks.length - 1);
+    });
+  }
+
+  var ksIndex = null;
+
+  /** Farbauswahl mit anschließender Jahreswahl. */
+  function farbWahl(fertig) {
+    var html = '<div class="hinweis" style="margin-bottom:12px">Welche Farbe hat die Kennung ' +
+      'am Seil, der Endkappe oder dem Kennring?</div><div class="farbgitter">' +
+      DATA.KS_FARBEN.map(function (f) {
+        return '<div class="farbkachel" style="background:' + f.hex +
+          (f.name === 'gelb' ? ';color:#3a2f00' : '') +
+          '" onclick="App.farbJahre(' + esc(JSON.stringify(f.name)) + ')">' + esc(f.name) + '</div>';
+      }).join('') + '</div>' +
+      '<button class="btn zweit" onclick="App.farbJahre(\'\')">Farbe unbekannt</button>';
+    ksFertig = fertig;
+    blendeAuf('Jahresfarbe', html);
+  }
+
+  var ksFertig = null;
+
+  /** Die vier plausiblen Einbaujahre mit Alter, Restlaufzeit und Ampel. */
+  function farbJahre(farbe) {
+    if (!farbe) { blendeZu(); if (ksFertig) ksFertig('', ''); return; }
+    var jahre = DATA.ksJahre(farbe, jetztJahr()),
+        html = '<div class="hinweis" style="margin-bottom:12px">' +
+          'Der Farbzyklus wiederholt sich alle acht Jahre – genauso lang wie die ' +
+          'Mindesteinsatzdauer nach ZTV. Deshalb sind mehrere Jahre möglich. ' +
+          '<b>Aufgedruckte Jahreszahl gegenlesen, wenn vorhanden.</b></div>';
+
+    html += jahre.map(function (j) {
+      var alter = jetztJahr() - j,
+          a = ksAmpel(j, 8);
+      return '<button class="jahrzeile" onclick="App.farbJahrSetzen(' +
+        esc(JSON.stringify(farbe)) + ',' + j + ')">' +
+        '<span class="farbpunkt" style="background:' + ksFarbHex(farbe) + '"></span>' +
+        '<b>' + j + '</b><span class="info">' +
+        (alter === 0 ? 'dieses Jahr eingebaut' : 'vor ' + alter + (alter === 1 ? ' Jahr' : ' Jahren') + ' eingebaut') +
+        '<br>bei 8 Jahren Einsatzdauer: ' + a.text + '</span>' +
+        '<span class="ampel ' + a.klasse + '">' + (a.rest > 2 ? 'ok' : (a.rest >= 0 ? 'bald' : 'fällig')) +
+        '</span></button>';
+    }).join('');
+
+    html += '<div class="feld" style="margin-top:12px"><label>Oder Jahr direkt eintragen</label>' +
+      '<input type="number" id="ksJahrFrei" placeholder="' + jetztJahr() + '" inputmode="numeric"></div>' +
+      '<button class="btn" onclick="App.farbJahrSetzen(' + esc(JSON.stringify(farbe)) +
+      ', document.getElementById(\'ksJahrFrei\').value)">Übernehmen</button>';
+
+    blendeAuf('Farbe ' + farbe + ' – mögliche Einbaujahre', html);
+  }
+
+  function farbJahrSetzen(farbe, jahr) {
+    blendeZu();
+    if (ksFertig) { var f = ksFertig; ksFertig = null; f(farbe, jahr ? String(jahr) : ''); }
+  }
+
+  /** Nachschlagewerk ohne Baumbezug. */
+  function farbNachschlag() {
+    farbWahl(function () { /* nur nachsehen, nichts übernehmen */ });
+  }
+
+  /* --- Erfassungsmaske --- */
+  function ksBearbeiten(i) {
+    ksIndex = i;
+    var b = S.baeume[aktuellerBaum], k = b.ks[i];
+    if (!k) return;
+    var dauer = k.einsatzdauer || ksEinsatzdauer(k.hersteller),
+        a = ksAmpel(k.einbaujahr, dauer),
+        bem = k.astbasis ? DATA.ksBemessung(parseFloat(k.astbasis),
+              /statisch/i.test(k.system || '')) : null;
+
+    var html =
+      '<div class="kszeile" style="margin-bottom:12px"><div class="kopf">' +
+      '<span class="farbpunkt" style="background:' + ksFarbHex(k.farbe) + '"></span>' +
+      '<b>' + (k.farbe ? 'Farbe ' + esc(k.farbe) : 'Farbe unbekannt') +
+      (k.einbaujahr ? ', Einbau ' + esc(k.einbaujahr) : '') + '</b>' +
+      '<span class="ampel ' + a.klasse + '">' + esc(a.text) + '</span></div>' +
+      '<button class="btn klein zweit" style="margin:8px 0 0" onclick="App.ksFarbeAendern()">' +
+      'Farbe oder Jahr ändern</button></div>' +
+
+      '<div class="feld"><label>Bezeichnung</label><input id="ks_bezeichnung" value="' +
+        esc(k.bezeichnung || '') + '" placeholder="z. B. Süd-Zwiesel"></div>' +
+      '<div class="feld"><label>Systemtyp</label><select id="ks_system">' +
+        opt(DATA.KS_SYSTEM, k.system) + '</select></div>' +
+      '<div class="zeile"><div class="feld"><label>Bauart nach ZTV</label><select id="ks_bauart">' +
+        opt(DATA.KS_BAUART, k.bauart, true) + '</select></div>' +
+      '<div class="feld"><label>Verbundform</label><select id="ks_verbund">' +
+        opt(DATA.KS_VERBUND, k.verbund, true) + '</select></div></div>' +
+      '<div class="zeile"><div class="feld"><label>Hersteller</label><select id="ks_hersteller" ' +
+        'onchange="App.ksHersteller()">' +
+        opt(DATA.KS_HERSTELLER.map(function (h) { return h.name; }), k.hersteller) + '</select></div>' +
+      '<div class="feld"><label>Einsatzdauer (Jahre)</label><input type="number" id="ks_einsatzdauer" ' +
+        'value="' + esc(dauer) + '"></div></div>' +
+      '<div class="zeile drei"><div class="feld"><label>Bruchlast (t)</label>' +
+        '<input type="number" id="ks_bruchlast" step="0.1" value="' + esc(k.bruchlast || '') + '"></div>' +
+      '<div class="feld"><label>Anzahl</label><input type="number" id="ks_anzahl" min="1" value="' +
+        esc(k.anzahl || 1) + '"></div>' +
+      '<div class="feld"><label>Einbauhöhe (m)</label><input type="number" id="ks_einbauhoehe" value="' +
+        esc(k.einbauhoehe || '') + '"></div></div>' +
+      '<div class="feld"><label>Ø an der Astbasis (cm)</label><input type="number" id="ks_astbasis" ' +
+        'value="' + esc(k.astbasis || '') + '" oninput="App.ksBemessung(this.value)"></div>' +
+      '<div class="hinweis" id="ksBemessung" style="margin:-6px 0 12px">' +
+        (bem ? bemessungText(bem, k.bruchlast) : 'Aus dem Durchmesser leitet die App den ' +
+         'Bemessungsvorschlag nach ZTV ab.') + '</div>' +
+
+      '<div class="feld"><label>Mängel</label><div class="symliste" style="border:1px solid var(--rand);' +
+        'border-radius:9px;padding:2px 0">' +
+        DATA.KS_MAENGEL.map(function (m, mi) {
+          var an = (k.maengel || []).indexOf(m) >= 0;
+          return '<label class="' + (an ? 'an' : '') + '"><input type="checkbox" value="' + esc(m) + '"' +
+            (an ? ' checked' : '') + ' onchange="App.ksMangel(this)">' + esc(m) + '</label>';
+        }).join('') + '</div></div>' +
+
+      '<div class="feld"><label>Bewertung</label><select id="ks_bewertung">' +
+        opt(DATA.KS_BEWERTUNG, k.bewertung) + '</select></div>' +
+      '<div class="feld"><label>Bemerkung</label><textarea id="ks_bemerkung">' +
+        esc(k.bemerkung || '') + '</textarea></div>' +
+      '<button class="btn" onclick="App.ksSpeichern()">Übernehmen</button>';
+
+    blendeAuf('Kronensicherung', html);
+  }
+
+  function opt(werte, gewaehlt, leer) {
+    return (leer ? '<option value="">– keine Angabe –</option>' : '') +
+      werte.map(function (w) {
+        return '<option value="' + esc(w) + '"' + (w === gewaehlt ? ' selected' : '') + '>' +
+          esc(w) + '</option>';
+      }).join('');
+  }
+
+  function bemessungText(vorschlag, eingebaut) {
+    var t = 'Bemessungsvorschlag nach ZTV: <b>' + vorschlag + ' t</b>';
+    var e = parseFloat(eingebaut);
+    if (e && e < vorschlag) t += ' – die eingetragene Bruchlast von ' + e + ' t liegt darunter.';
+    return t;
+  }
+
+  function ksBemessungAnzeige(wert) {
+    var d = parseFloat(wert), f = el('ksBemessung');
+    if (!f) return;
+    if (!d) { f.textContent = 'Aus dem Durchmesser leitet die App den Bemessungsvorschlag nach ZTV ab.'; return; }
+    var statisch = /statisch/i.test(feldWert('ks_system') || '');
+    f.innerHTML = bemessungText(DATA.ksBemessung(d, statisch), feldWert('ks_bruchlast'));
+  }
+
+  function ksHersteller() {
+    var dauer = ksEinsatzdauer(feldWert('ks_hersteller'));
+    setzeFeld('ks_einsatzdauer', dauer);
+  }
+
+  function ksMangel(box) {
+    box.parentNode.className = box.checked ? 'an' : '';
+  }
+
+  function ksFarbeAendern() {
+    var i = ksIndex;
+    farbWahl(function (farbe, jahr) {
+      var k = S.baeume[aktuellerBaum].ks[i];
+      k.farbe = farbe; k.einbaujahr = jahr;
+      sichern();
+      ksBearbeiten(i);
+    });
+  }
+
+  function ksSpeichern() {
+    var b = S.baeume[aktuellerBaum], k = b.ks[ksIndex];
+    if (!k) { blendeZu(); return; }
+    ['bezeichnung','system','bauart','verbund','hersteller','einsatzdauer','bruchlast',
+     'anzahl','einbauhoehe','astbasis','bewertung','bemerkung'].forEach(function (f) {
+      k[f] = feldWert('ks_' + f);
+    });
+    k.maengel = [];
+    Array.prototype.forEach.call(
+      document.querySelectorAll('.blende .symliste input:checked'),
+      function (i) { k.maengel.push(i.value); });
+    blendeZu();
+    zeichneKS(b);
+    sichern();
+  }
+
+  function ksWeg(i) {
+    var b = S.baeume[aktuellerBaum];
+    b.ks.splice(i, 1);
+    zeichneKS(b);
+    sichern();
+  }
+
   /* =========================================================================
    * Fotos
    * ====================================================================== */
@@ -2101,7 +2395,14 @@ var App = (function () {
     history.pushState({ blende: true }, '', '');
   }
 
-  function blendeZu() { el('blende').classList.remove('an'); }
+  function blendeZu() {
+    el('blende').classList.remove('an');
+    /* Inhalt kurz danach leeren – sonst hängen alte Felder im DOM und
+       Selektoren greifen auf Reste einer geschlossenen Einblendung zu. */
+    setTimeout(function () {
+      if (!blendeOffen()) el('blendeInhalt').innerHTML = '';
+    }, 250);
+  }
   function blendeOffen() { return el('blende').classList.contains('an'); }
 
   /* =========================================================================
@@ -2697,6 +2998,10 @@ var App = (function () {
     massnahmeNeu: massnahmeNeu, massnahmeStufe: massnahmeStufe, massnahmeAnlegen: massnahmeAnlegen,
     massnahmeFeld: massnahmeFeld, massnahmeWeg: massnahmeWeg,
     fotoWeg: fotoWeg, gps: gps, mehr: mehr, richtung: richtung,
+    ksNeu: ksNeu, ksBearbeiten: ksBearbeiten, ksSpeichern: ksSpeichern, ksWeg: ksWeg,
+    ksHersteller: ksHersteller, ksMangel: ksMangel, ksFarbeAendern: ksFarbeAendern,
+    ksBemessung: ksBemessungAnzeige, farbNachschlag: farbNachschlag,
+    farbJahre: farbJahre, farbJahrSetzen: farbJahrSetzen,
     blendeAuf: blendeAuf, blendeZu: blendeZu,
     pdf: pdf, excel: excel, excelKalkulation: excelKalkulation,
     angebot: angebot, auftragswert: auftragswert, posten: posten,
@@ -3065,6 +3370,42 @@ var PDF = (function () {
     });
     y = doc.lastAutoTable.finalY + 2.4;
 
+    /* Kronensicherungen – nur wenn welche im Baum hängen */
+    var ksListe = b.ks || [];
+    if (ksListe.length) {
+      y = blockTitel(doc, 'Kronensicherungen', y, true);
+      doc.autoTable({
+        startY: y, margin: { left: M.l, right: M.r }, tableWidth: M.w,
+        styles: { fontSize: 6.8, cellPadding: 1.1, lineColor: C.linie, lineWidth: 0.15, valign: 'top' },
+        headStyles: { fillColor: C.kopfBg, textColor: [68, 68, 68], fontSize: 6, fontStyle: 'bold' },
+        columnStyles: {
+          0: { cellWidth: M.w * 0.16 }, 1: { cellWidth: M.w * 0.11, halign: 'center' },
+          2: { cellWidth: M.w * 0.09, halign: 'center' }, 3: { cellWidth: M.w * 0.15 },
+          4: { cellWidth: M.w * 0.09, halign: 'center' }, 5: { cellWidth: M.w * 0.13 },
+          6: { cellWidth: 'auto' }
+        },
+        head: [['Bezeichnung', 'Farbe / Jahr', 'Austausch', 'System', 'Bruchlast', 'Bewertung', 'Mängel']],
+        body: ksListe.map(function (k) {
+          var dauer = parseInt(k.einsatzdauer, 10) || 8,
+              austausch = k.einbaujahr ? (parseInt(k.einbaujahr, 10) + dauer) : '–';
+          return [
+            k.bezeichnung || k.system || 'Kronensicherung',
+            (k.farbe || '?') + (k.einbaujahr ? ' / ' + k.einbaujahr : ''),
+            String(austausch),
+            (k.system || '').replace('e Bruchsicherung', '').replace('Trag-/Haltesicherung', 'Trag/Halte'),
+            k.bruchlast ? k.bruchlast + ' t' : '–',
+            k.bewertung || '',
+            (k.maengel || []).length ? (k.maengel || []).join(', ') : 'keine'
+          ];
+        })
+      });
+      y = doc.lastAutoTable.finalY + 1.4;
+      t(doc, 'Jahresfarben sind eine Branchenkonvention der Hersteller, keine Norm. Der Zyklus ' +
+             'beträgt acht Jahre; das Einbaujahr ist im Zweifel an der aufgedruckten Jahreszahl zu prüfen.',
+        M.l, y + 2.4, { size: 5.9, color: C.weich });
+      y += 5.4;
+    }
+
     y = blockTitel(doc, 'Grenzen der Kontrolle nach FLL 5.4', y, true);
     y = textKasten(doc, b.grenzen || 'Keine Einschränkungen der Beurteilbarkeit festgestellt.', y, 9);
     y += 2.4;
@@ -3424,6 +3765,81 @@ var PDF = (function () {
     return s.length;
   }
 
+  /** Übersicht aller Kronensicherungen im Bestand, nach Dringlichkeit des Austauschs. */
+  function kronensicherungen(doc, a, baeume, jahr) {
+    var alle = [];
+    baeume.forEach(function (b) {
+      (b.ks || []).forEach(function (k) { alle.push({ b: b, k: k }); });
+    });
+    if (!alle.length) return false;
+
+    var y = kopf(doc, a.auftragsNr, 'Kronensicherungen');
+    t(doc, 'Kronensicherungen', M.l, y + 3.2, { size: 11, bold: true });
+    var baumZahl = new Set(alle.map(function (x) { return x.b.nr; })).size;
+    t(doc, alle.length + (alle.length === 1 ? ' Sicherung' : ' Sicherungen') +
+           ' in ' + baumZahl + (baumZahl === 1 ? ' Baum' : ' Bäumen') +
+           ' · sortiert nach Austauschjahr', M.l, y + 6.8, { size: 7.2, color: C.weich });
+    y += 10.4;
+
+    alle.forEach(function (x) {
+      var dauer = parseInt(x.k.einsatzdauer, 10) || 8;
+      x.austausch = x.k.einbaujahr ? parseInt(x.k.einbaujahr, 10) + dauer : 9999;
+    });
+    alle.sort(function (p, q) { return p.austausch - q.austausch; });
+
+    doc.autoTable({
+      startY: y, margin: { left: M.l, right: M.r }, tableWidth: M.w, showHead: 'everyPage',
+      styles: { fontSize: 7, cellPadding: 1.2, lineColor: [204, 204, 204], lineWidth: 0.15, valign: 'top' },
+      headStyles: { fillColor: C.kopfBg, textColor: [68, 68, 68], fontSize: 6.2, fontStyle: 'bold' },
+      columnStyles: {
+        0: { cellWidth: M.w * 0.06, halign: 'center', fontStyle: 'bold' },
+        1: { cellWidth: M.w * 0.13 }, 2: { cellWidth: M.w * 0.14 },
+        3: { cellWidth: M.w * 0.1, halign: 'center' }, 4: { cellWidth: M.w * 0.09, halign: 'center' },
+        5: { cellWidth: M.w * 0.12 }, 6: { cellWidth: 'auto' }
+      },
+      head: [['Nr.', 'Baumart', 'Bezeichnung', 'Farbe / Jahr', 'Austausch', 'Bewertung', 'Mängel']],
+      body: alle.map(function (x) {
+        return [x.b.nr, MAP.artDt(x.b), x.k.bezeichnung || x.k.system || '',
+          (x.k.farbe || '?') + (x.k.einbaujahr ? ' / ' + x.k.einbaujahr : ''),
+          x.austausch === 9999 ? '–' : String(x.austausch),
+          x.k.bewertung || '',
+          (x.k.maengel || []).length ? (x.k.maengel || []).join(', ') : 'keine'];
+      }),
+      didParseCell: function (data) {
+        if (data.section === 'body' && data.column.index === 4) {
+          var wert = parseInt(data.cell.raw, 10);
+          if (wert && jahr) {
+            if (wert < jahr)       { data.cell.styles.textColor = [176, 48, 48]; data.cell.styles.fontStyle = 'bold'; }
+            else if (wert === jahr){ data.cell.styles.textColor = [209, 117, 26]; data.cell.styles.fontStyle = 'bold'; }
+            else if (wert - jahr <= 2) data.cell.styles.textColor = [150, 120, 20];
+          }
+        }
+      }
+    });
+    y = doc.lastAutoTable.finalY + 3.2;
+
+    /* Farblegende, damit der Kunde die Kennungen selbst zuordnen kann */
+    y = blockTitel(doc, 'Jahresfarben der Hersteller', y, true);
+    var farben = [['grün', [63,139,63]], ['gelb', [232,197,32]], ['rot', [192,57,43]],
+                  ['blau', [43,108,176]], ['braun', [123,74,37]], ['violett', [122,63,157]],
+                  ['orange', [226,134,26]], ['grau', [138,138,138]]],
+        basis = jahr || 2026,
+        sw = M.w / 8;
+    rect(doc, M.l, y, M.w, 13.5, null, C.linie);
+    farben.forEach(function (f, i) {
+      var x = M.l + i * sw, rest = (basis - (i + 1)) % 8;
+      rect(doc, x + 1.6, y + 1.8, sw - 3.2, 4, f[1], null);
+      t(doc, f[0], x + sw / 2, y + 7.6, { size: 6, align: 'center' });
+      var j = basis - ((basis - (i + 1)) % 8);
+      t(doc, String(j) + ' · ' + String(j - 8), x + sw / 2, y + 11, { size: 5.6, color: C.weich, align: 'center' });
+    });
+    y += 15;
+    textBlock(doc, 'Herstellerübergreifender Achtjahreszyklus, Branchenkonvention und keine Norm. ' +
+      'Weil der Zyklus genauso lang ist wie die Mindesteinsatzdauer nach ZTV-Baumpflege, ist eine Farbe ' +
+      'nie eindeutig – die aufgedruckte Jahreszahl geht vor.', M.l + 1, y, M.w - 2, { size: 6.4, lh: 2.8 });
+    return true;
+  }
+
   function bestandsliste(doc, a, baeume) {
     var y = kopf(doc, a.auftragsNr, 'Bestandsliste');
     t(doc, 'Bestandsliste', M.l, y + 3.2, { size: 11, bold: true });
@@ -3599,6 +4015,8 @@ var PDF = (function () {
       doc.addPage(); zusammenfassung(doc, a, baeume);
       doc.addPage(); bestandsliste(doc, a, baeume);
       doc.addPage(); massnahmenliste(doc, a, baeume);
+      var hatKS = baeume.some(function (b) { return (b.ks || []).length; });
+      if (hatKS) { doc.addPage(); kronensicherungen(doc, a, baeume, opt.jahr); }
       doc.addPage(); trenner(doc, a, baeume.length);
       baeume.forEach(function (b) {
         doc.addPage(); blattSeite1(doc, a, b, 'Einzelkontrollblatt – Baum ' + MAP.baumNr(b));
@@ -3980,6 +4398,34 @@ var XLS = (function () {
           zaehler[k].baeume.join(', ')]);
       });
     blatt(mappe, 'Befundübersicht', bz, [24, 34, 13, 9, 40]);
+
+    /* --- Kronensicherungen --- */
+    var ks = [['Baum-Nr.', 'Baumart', 'Bezeichnung', 'Farbe', 'Einbaujahr', 'Einsatzdauer (J.)',
+               'Austauschjahr', 'Systemtyp', 'Bauart', 'Verbundform', 'Hersteller', 'Bruchlast (t)',
+               'Anzahl', 'Einbauhöhe (m)', 'Ø Astbasis (cm)', 'Bemessung ZTV (t)', 'Mängel',
+               'Bewertung', 'Bemerkung']];
+    baeume.forEach(function (b) {
+      (b.ks || []).forEach(function (k) {
+        var dauer = parseInt(k.einsatzdauer, 10) || 8,
+            astbasis = parseFloat(k.astbasis),
+            bem = astbasis ? DATA.ksBemessung(astbasis, /statisch/i.test(k.system || '')) : '';
+        ks.push([b.nr, b.artDt, k.bezeichnung, k.farbe, num(k.einbaujahr), dauer,
+          k.einbaujahr ? parseInt(k.einbaujahr, 10) + dauer : '',
+          k.system, k.bauart, k.verbund, k.hersteller, num(k.bruchlast), num(k.anzahl),
+          num(k.einbauhoehe), num(k.astbasis), bem,
+          (k.maengel || []).join(', '), k.bewertung, k.bemerkung]);
+      });
+    });
+    if (ks.length > 1) {
+      ks.push([]);
+      ks.push(['Jahresfarben (Achtjahreszyklus, Branchenkonvention der Hersteller, keine Norm)']);
+      ks.push(['Farbe', 'Einbaujahre']);
+      DATA.KS_FARBEN.forEach(function (f) {
+        ks.push([f.name, DATA.ksJahre(f.name, new Date().getFullYear()).join(' · ')]);
+      });
+      blatt(mappe, 'Kronensicherungen', ks,
+        [9, 18, 20, 10, 11, 13, 13, 24, 18, 20, 16, 12, 8, 13, 15, 15, 40, 16, 30]);
+    }
 
     /* --- Kontrolltermine --- */
     var tz = [['Baum-Nr.', 'Baumart', 'Standort', 'Zustand', 'Intervall',
