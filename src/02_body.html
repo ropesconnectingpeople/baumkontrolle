@@ -1,0 +1,340 @@
+<header>
+  <button class="zurueck" id="btnZurueck" style="display:none">&#8249; Bäume</button>
+  <h1 id="titel">Baumkontrolle</h1>
+  <button class="aktion" id="btnAktion" style="display:none">Fertig</button>
+</header>
+
+<main>
+
+<!-- ================= BAUMLISTE – die Zentrale ================= -->
+<div class="view aktiv" id="view-liste">
+  <div class="karte">
+    <h2>Auftrag</h2>
+    <div class="inhalt" id="auftragKurz"></div>
+    <div style="padding:0 14px 12px">
+      <button class="btn zweit" onclick="App.zeige('auftrag')">Auftragsdaten bearbeiten</button>
+    </div>
+  </div>
+
+  <div class="karte">
+    <h2>Bäume <span id="baumZahl"></span></h2>
+    <div id="baumListe"></div>
+  </div>
+
+  <button class="btn" onclick="App.neuerBaum()">+ Baum aufnehmen</button>
+  <div class="btnreihe">
+    <button class="btn zweit" onclick="App.zeige('ausgabe')">Ausgabe</button>
+    <button class="btn zweit" onclick="App.zeige('einstellungen')">Einstellungen</button>
+  </div>
+</div>
+
+<!-- ================= AUFTRAG ================= -->
+<div class="view" id="view-auftrag">
+  <div class="karte">
+    <h2>Auftraggeber und Objekt</h2>
+    <div class="inhalt">
+      <div class="feld"><label>Auftraggeber</label><input id="a_auftraggeber" placeholder="Name oder Firma"></div>
+      <div class="feld"><label>Objekt</label><input id="a_objekt" placeholder="z. B. Wohnanlage Prehnsweg 12–18"></div>
+      <div class="zeile">
+        <div class="feld"><label>Auftrags-Nr.</label><input id="a_auftragsNr"></div>
+        <div class="feld"><label>Kontrollart</label><select id="a_kontrollart"></select></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="karte">
+    <h2>Kontrollbedingungen</h2>
+    <div class="inhalt">
+      <div class="zeile">
+        <div class="feld"><label>Kontrolldatum</label><input type="date" id="a_datum"></div>
+        <div class="feld"><label>Ende (bei Beständen)</label><input type="date" id="a_datumBis"></div>
+      </div>
+      <div class="zeile">
+        <div class="feld"><label>Belaubungszustand</label><select id="a_belaubung"></select></div>
+        <div class="feld"><label>Witterung</label><select id="a_witterung"></select></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="karte">
+    <h2>Kontrolleur</h2>
+    <div class="inhalt">
+      <div class="feld"><label>Name</label><input id="a_kontrolleur"></div>
+      <div class="zeile">
+        <div class="feld"><label>Qualifikation</label><input id="a_qualifikation"
+          placeholder="FLL-zertifizierter Baumkontrolleur"></div>
+        <div class="feld"><label>Zertifikats-Nr.</label><input id="a_zertNr"></div>
+      </div>
+      <div class="hinweis">Name, Qualifikation und Datum gehören zu den Pflichtangaben der
+        Dokumentation und stehen auf jedem Protokollblatt.</div>
+    </div>
+  </div>
+
+  <button class="btn" onclick="App.zeige('liste')">Übernehmen</button>
+</div>
+
+<!-- ================= BAUM ================= -->
+<div class="view" id="view-baum">
+  <div class="karte">
+    <h2>Baum</h2>
+    <div class="inhalt">
+      <div class="zeile drei">
+        <div class="feld"><label>Baum-Nr.</label><input id="b_nr"></div>
+        <div class="feld"><label>Stammzahl</label><input type="number" id="b_stammzahl" min="1" value="1"></div>
+        <div class="feld"><label>Alter (Jahre)</label><input id="b_alter" placeholder="ca."></div>
+      </div>
+      <div class="feld"><label>Baumart</label>
+        <button class="wahl" id="b_artKnopf" onclick="App.artWahl()">
+          <b id="b_artDt">Art wählen</b><span id="b_artBot"></span></button>
+      </div>
+      <div class="zeile drei">
+        <div class="feld"><label>Höhe (m)</label><input type="number" id="b_hoehe" inputmode="decimal"></div>
+        <div class="feld"><label>Krone Ø (m)</label><input type="number" id="b_kroneD" inputmode="decimal"></div>
+        <div class="feld"><label>Kronenansatz (m)</label><input type="number" id="b_kronenansatz" inputmode="decimal"></div>
+      </div>
+      <div class="zeile">
+        <div class="feld"><label>Stammumfang (cm)</label><input type="number" id="b_stammumfang" inputmode="decimal"></div>
+        <div class="feld"><label>Messhöhe</label><select id="b_messhoehe">
+          <option value="1,00 m">1,00 m (FLL)</option><option value="1,30 m">1,30 m (BHD)</option></select></div>
+      </div>
+      <div class="hinweis">Höhe und Kronenbreite dürfen nach FLL um ± 2 m abweichen.
+        Die Messhöhe wird auf dem Protokoll mitgeführt.</div>
+    </div>
+  </div>
+
+  <div class="karte">
+    <h2>Standort</h2>
+    <div class="inhalt">
+      <div class="zeile">
+        <div class="feld"><label>Straße</label><input id="b_strasse"></div>
+        <div class="feld"><label>Haus-Nr.</label><input id="b_hausNr"></div>
+      </div>
+      <div class="zeile">
+        <div class="feld"><label>Flurstück</label><input id="b_flurstueck"></div>
+        <div class="feld"><label>Baumumfeld</label><select id="b_umfeld"></select></div>
+      </div>
+      <div class="feld"><label>Koordinaten</label>
+        <div class="zeile"><input id="b_gpsLat" placeholder="Breite"><input id="b_gpsLon" placeholder="Länge"></div>
+      </div>
+      <button class="btn zweit" onclick="App.gps()">Standort per GPS übernehmen</button>
+    </div>
+  </div>
+
+  <div class="karte">
+    <h2>Einstufung nach FLL</h2>
+    <div class="inhalt">
+      <div class="feld"><label>Entwicklungsphase</label><select id="b_phase"></select></div>
+      <div class="feld"><label>Zustand</label><select id="b_zustand"></select>
+        <div class="hinweis" id="zustandHilfe"></div></div>
+      <div class="feld"><label>Sicherheitserwartung des Verkehrs</label><select id="b_erwartung"></select></div>
+      <div class="feld"><label>Vitalität nach Roloff (freiwillig)</label><select id="b_roloff"></select>
+        <div class="hinweis">Zusatzfeld. Steuert die FLL-Intervallmatrix nicht.</div></div>
+      <div class="trenner"></div>
+      <div class="zeile">
+        <div class="feld"><label>Vorschlag aus der FLL-Matrix</label>
+          <input id="b_intervallMatrix" readonly style="background:#f0f5f1;font-weight:700;color:#2d5a3d"></div>
+        <div class="feld"><label>Festgelegtes Intervall</label><select id="b_intervall"></select></div>
+      </div>
+      <div class="feld"><label>Nächste Regelkontrolle</label><input id="b_naechsteKontrolle" readonly
+        style="background:#f0f5f1;font-weight:700;color:#2d5a3d"></div>
+    </div>
+  </div>
+
+  <div class="karte">
+    <h2>Schadsymptome – nur Auffälligkeiten</h2>
+    <div id="symptome"></div>
+  </div>
+
+  <div class="karte" id="pilzKarte" style="display:none">
+    <h2>Pilzbestimmung</h2>
+    <div class="inhalt">
+      <div class="feld"><label>Pilzart</label><select id="b_pilzName"></select></div>
+      <div class="zeile">
+        <div class="feld"><label>Fäuletyp</label><input id="b_pilzFaeule" readonly style="background:#f7f8f7"></div>
+        <div class="feld"><label>Lage am Baum</label><input id="b_pilzLage" placeholder="z. B. Wurzelanlauf SW"></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="karte">
+    <h2>Befund</h2>
+    <div class="inhalt">
+      <div class="feld"><textarea id="b_befundtext"
+        placeholder="Beschreibung der festgestellten Schäden und ihrer Bedeutung für die Verkehrssicherheit"></textarea></div>
+    </div>
+  </div>
+
+  <div class="karte">
+    <h2 class="grau">Grenzen der Kontrolle nach FLL 5.4</h2>
+    <div class="inhalt">
+      <div id="grenzenWahl" style="margin-bottom:10px"></div>
+      <textarea id="b_grenzen" placeholder="Was war nicht oder nur eingeschränkt beurteilbar?"></textarea>
+      <div class="hinweis">Eingeschränkte Beurteilbarkeit ausdrücklich dokumentieren –
+        das ist im Streitfall der entscheidende Punkt.</div>
+    </div>
+  </div>
+
+  <div class="karte">
+    <h2>Maßnahmen</h2>
+    <div class="inhalt">
+      <div id="massnahmenListe"></div>
+      <button class="btn zweit" onclick="App.massnahmeNeu()">+ Maßnahme</button>
+    </div>
+  </div>
+
+  <div class="karte">
+    <h2 class="grau">Fotos</h2>
+    <div class="inhalt">
+      <div class="fotogitter" id="fotoGitter"></div>
+      <input type="file" id="fotoInput" accept="image/*" capture="environment" style="display:none" multiple>
+      <div class="hinweis">Bilder werden auf 1280 px verkleinert, damit der Speicher reicht.</div>
+    </div>
+  </div>
+
+  <div class="karte">
+    <h2 class="grau">Bemerkungen</h2>
+    <div class="inhalt"><textarea id="b_bemerkung"></textarea></div>
+  </div>
+
+  <div class="karte" id="historieKarte" style="display:none">
+    <h2 class="grau">Kontrollhistorie</h2>
+    <div class="inhalt"><table class="mini" id="historieTabelle"></table></div>
+  </div>
+
+  <button class="btn" onclick="App.baumSpeichern(true)">Speichern und nächsten Baum</button>
+  <button class="btn zweit" onclick="App.baumSpeichern(false)">Speichern und zurück</button>
+</div>
+
+<!-- ================= AUSGABE ================= -->
+<div class="view" id="view-ausgabe">
+  <div class="kacheln" id="ausgabeKacheln"></div>
+
+  <div class="karte">
+    <h2>Protokoll</h2>
+    <div class="inhalt">
+      <button class="btn" onclick="App.pdf('auto')">PDF erzeugen</button>
+      <div class="hinweis">Ein Baum ergibt ein zweiseitiges Kontrollblatt. Mehrere Bäume ergeben
+        den Bericht mit Deckblatt, Zusammenfassung, Bestandsliste, Maßnahmenliste und
+        Einzelblättern – alles im FLL-Format.</div>
+    </div>
+  </div>
+
+  <div class="karte">
+    <h2>Angebotspositionen für sevDesk</h2>
+    <div class="inhalt">
+      <div id="angebotSumme"></div>
+      <div id="sevListe"></div>
+      <div class="btnreihe" style="margin-bottom:9px">
+        <button class="btn" onclick="App.sevKopieren()">Liste kopieren</button>
+        <button class="btn zweit" onclick="App.sevCsv()">Als CSV</button>
+      </div>
+      <div class="feld" style="margin-bottom:9px">
+        <label>Positionen bilden nach</label>
+        <select id="sevGruppierung" onchange="App.zeichneAusgabe()">
+          <option value="leistung">Leistung und Höhenklasse (wenige Positionen)</option>
+          <option value="baum">Baum einzeln (der Kunde sieht jeden Baum)</option>
+        </select>
+      </div>
+      <div class="hinweis">Die kopierte Liste ist mit Tabulatoren getrennt und lässt sich
+        direkt in eine Tabelle einfügen. sevDesk kann Angebote nicht per CSV importieren –
+        die Positionen müssen dort eingetragen werden.</div>
+    </div>
+  </div>
+
+  <div class="karte">
+    <h2 class="grau">Angebot als PDF</h2>
+    <div class="inhalt">
+      <button class="btn zweit" onclick="App.angebot()">Angebot als PDF</button>
+      <div class="hinweis">Falls du doch mal direkt aus der App heraus anbieten willst:
+        Positionen nach Dringlichkeit gruppiert, mit Zwischensummen für die Teilbeauftragung.
+        Preise stehen nie im Kontrollprotokoll – wer kontrolliert und ausführt, hält beides
+        besser getrennt.</div>
+    </div>
+  </div>
+
+  <div class="karte">
+    <h2>Tabellen</h2>
+    <div class="inhalt">
+      <button class="btn zweit" onclick="App.excel()">Excel-Bestandsliste</button>
+      <button class="btn zweit" onclick="App.excelKalkulation()">Kalkulation mit Preisen</button>
+      <div class="hinweis">Preise erscheinen nur in der Kalkulation, nie im Kontrollprotokoll.</div>
+    </div>
+  </div>
+
+  <div class="karte">
+    <h2 class="grau">Sicherung</h2>
+    <div class="inhalt">
+      <button class="btn zweit" onclick="App.sicherungExport()">Sicherung speichern (JSON)</button>
+      <button class="btn zweit" onclick="document.getElementById('importInput').click()">Sicherung laden</button>
+      <input type="file" id="importInput" accept=".json,application/json" style="display:none">
+      <div class="hinweis">Beim Laden einer Sicherung aus einem Vorjahr fragt die App, ob daraus
+        eine Folgekontrolle werden soll. Dann bleiben alle Bäume erhalten, der alte Stand wandert
+        in die Historie und die Befunde werden geleert.</div>
+    </div>
+  </div>
+</div>
+
+<!-- ================= EINSTELLUNGEN ================= -->
+<div class="view" id="view-einstellungen">
+  <div class="karte">
+    <h2>Betrieb</h2>
+    <div class="inhalt">
+      <div class="feld"><label>Firmenname</label><input id="e_name"></div>
+      <div class="feld"><label>Zusatz</label><input id="e_zusatz"></div>
+      <div class="feld"><label>Anschrift</label><input id="e_anschrift" placeholder="Straße · PLZ Ort"></div>
+      <div class="feld"><label>Kontakt</label><input id="e_kontakt" placeholder="Tel. · E-Mail"></div>
+      <button class="btn zweit" onclick="App.einstellungenSpeichern()">Übernehmen</button>
+    </div>
+  </div>
+
+  <div class="karte">
+    <h2>Preise</h2>
+    <div class="inhalt">
+      <div class="hinweis" style="margin-bottom:10px">Netto je Baum, gestaffelt nach Höhenklasse.
+        Richtwerte – bitte auf die eigene Kalkulation anpassen.</div>
+      <button class="btn zweit" onclick="App.preisliste()">Preisliste bearbeiten</button>
+      <button class="btn zweit" onclick="App.sevProdukte()">Als sevDesk-Produkte (CSV)</button>
+      <div class="zeile" style="margin-top:9px">
+        <div class="feld"><label>Umsatzsteuer (%)</label><input type="number" id="e_ust" value="19"></div>
+        <div class="feld"><label>Stundensatz (€)</label><input type="number" id="e_stundensatz" value="85"></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="karte">
+    <h2 class="grau">Papierkorb <span id="papierkorbZahl"></span></h2>
+    <div id="papierkorbListe"></div>
+    <div class="inhalt" style="padding-top:0">
+      <div class="hinweis">Gelöschte Bäume bleiben 30 Tage vollständig erhalten,
+        inklusive Fotos und Befunden.</div>
+    </div>
+  </div>
+
+  <div class="karte">
+    <h2 class="grau">Speicher</h2>
+    <div class="inhalt">
+      <div id="speicherInfo" class="hinweis" style="margin-bottom:10px"></div>
+      <button class="btn rot" onclick="App.allesZuruecksetzen()">Alles zurücksetzen</button>
+      <div class="hinweis">Die Bäume wandern dabei in den Papierkorb, nicht ins Nichts.</div>
+    </div>
+  </div>
+
+  <div class="karte">
+    <h2 class="grau">Über</h2>
+    <div class="inhalt">
+      <div class="hinweis">Baumkontrolle nach FLL-Baumkontrollrichtlinien, 3. Ausgabe 2020.
+        Dringlichkeitsstufen nach GALK-Musterdienstanweisung 2021.
+        Läuft vollständig offline, alle Daten bleiben auf diesem Gerät.
+        <br><br><b id="versionZeile"></b></div>
+    </div>
+  </div>
+</div>
+
+</main>
+
+<div id="meldung"><span id="meldungText"></span><button id="meldungKnopf"></button></div>
+
+<div class="blende" id="blende"><div class="box">
+  <h3><span id="blendeTitel"></span><button onclick="App.blendeZu()">&times;</button></h3>
+  <div id="blendeInhalt"></div>
+</div></div>
