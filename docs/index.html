@@ -259,13 +259,20 @@ table.mini tr:last-child td{border-bottom:0}
     <h2>Kontrolleur</h2>
     <div class="inhalt">
       <div class="feld"><label>Name</label><input id="a_kontrolleur"></div>
+      <div class="feld"><label>Qualifikation</label><select id="a_qualifikation"></select></div>
+      <div class="feld" id="qualFreitextFeld" style="display:none">
+        <label>Bezeichnung</label><input id="a_qualifikationFrei"
+          placeholder="Wie soll die Qualifikation im Protokoll stehen?"></div>
       <div class="zeile">
-        <div class="feld"><label>Qualifikation</label><input id="a_qualifikation"
-          placeholder="FLL-zertifizierter Baumkontrolleur"></div>
-        <div class="feld"><label>Zertifikats-Nr.</label><input id="a_zertNr"></div>
+        <div class="feld"><label>Geprüft (MM/JJJJ)</label><input id="a_pruefung"
+          placeholder="11/2015" inputmode="numeric"></div>
+        <div class="feld"><label>Ausbildungsinstitut</label><input id="a_institut"
+          placeholder="z. B. Baumpflegeschule Busemann"></div>
       </div>
-      <div class="hinweis">Name, Qualifikation und Datum gehören zu den Pflichtangaben der
-        Dokumentation und stehen auf jedem Protokollblatt.</div>
+      <div class="hinweis">Name, Qualifikation und Datum sind Pflichtangaben der Dokumentation
+        und stehen auf jedem Protokollblatt. Es gibt keine gesetzliche Regelung, wer
+        Baumkontrollen durchführen darf – maßgeblich ist die nachweisbare Fachkunde. Prüfungsjahr
+        und Institut machen sie überprüfbar; eine Zertifikatsnummer vergibt die FLL nicht.</div>
     </div>
   </div>
 
@@ -1003,6 +1010,25 @@ var DATA = (function () {
     ['Sumpfzypresse', 'Taxodium distichum', 400], ['Mammutbaum', 'Sequoiadendron giganteum', 1000]
   ];
 
+  /* --- Qualifikation des Kontrolleurs -------------------------------------
+   * Es gibt keine gesetzliche Regelung, wer Baumkontrollen durchführen darf;
+   * „Baumkontrolleur" ist keine geschützte Bezeichnung. Maßstab ist die
+   * Fachkunde, und die wird objektiv gemessen (OLG Hamm). Allgemeine
+   * Berufserfahrung genügt nicht. FLL 5.2.5 verlangt entsprechende
+   * Fachkunde, die fortlaufend zu erhalten ist.
+   * -------------------------------------------------------------------- */
+  var QUALIFIKATIONEN = [
+    'FLL-zertifizierter Baumkontrolleur',
+    'Fachagrarwirt Baumpflege und Baumsanierung',
+    'European Tree Technician (ETT)',
+    'European Tree Worker (ETW)',
+    'B.Sc. Arboristik',
+    'M.Sc. Arboristik',
+    'Öffentlich bestellter und vereidigter Sachverständiger für Baumpflege und Verkehrssicherheit von Bäumen',
+    'Staatlich geprüfter Techniker Garten- und Landschaftsbau',
+    'Baumkontrolleur (Lehrgang)'
+  ];
+
   /* --- FLL-Einstufungen ---------------------------------------------------
    * Die FLL kennt keine „Zerfallsphase" – der Begriff stammt aus der
    * Fachliteratur, nicht aus der Richtlinie.
@@ -1244,7 +1270,7 @@ var DATA = (function () {
   };
 
   return {
-    ARTEN: ARTEN, PHASEN: PHASEN, ZUSTAENDE: ZUSTAENDE, ERWARTUNG: ERWARTUNG,
+    ARTEN: ARTEN, QUALIFIKATIONEN: QUALIFIKATIONEN, PHASEN: PHASEN, ZUSTAENDE: ZUSTAENDE, ERWARTUNG: ERWARTUNG,
     ROLOFF: ROLOFF, KONTROLLART: KONTROLLART, BELAUBUNG: BELAUBUNG, WITTERUNG: WITTERUNG,
     ZUSTAND_HILFE: ZUSTAND_HILFE, SYMPTOME: SYMPTOME, PILZE: PILZE,
     MASSNAHMEN: MASSNAHMEN, DRINGLICHKEIT: DRINGLICHKEIT, UMFELD: UMFELD, GRENZEN: GRENZEN,
@@ -1287,7 +1313,8 @@ var App = (function () {
       auftrag: {
         auftraggeber: '', objekt: '', auftragsNr: '', kontrollart: 'Regelkontrolle',
         datum: heuteISO(), datumBis: '', belaubung: 'belaubt', witterung: 'trocken, bedeckt',
-        kontrolleur: '', qualifikation: 'FLL-zertifizierter Baumkontrolleur', zertNr: '',
+        kontrolleur: '', qualifikation: 'FLL-zertifizierter Baumkontrolleur',
+        qualifikationFrei: '', pruefung: '', institut: '',
         berichtsdatum: heuteISO()
       },
       baeume: [],
@@ -1478,7 +1505,8 @@ var App = (function () {
   function auftragLesen() {
     var a = S.auftrag;
     ['auftraggeber','objekt','auftragsNr','kontrollart','datum','datumBis','belaubung',
-     'witterung','kontrolleur','qualifikation','zertNr'].forEach(function (k) {
+     'witterung','kontrolleur','qualifikation','qualifikationFrei','pruefung',
+     'institut'].forEach(function (k) {
       a[k] = feldWert('a_' + k);
     });
     a.berichtsdatum = a.berichtsdatum || heuteISO();
@@ -1487,9 +1515,26 @@ var App = (function () {
   function auftragSchreiben() {
     var a = S.auftrag;
     ['auftraggeber','objekt','auftragsNr','kontrollart','datum','datumBis','belaubung',
-     'witterung','kontrolleur','qualifikation','zertNr'].forEach(function (k) {
+     'witterung','kontrolleur','qualifikation','qualifikationFrei','pruefung',
+     'institut'].forEach(function (k) {
       setzeFeld('a_' + k, a[k]);
     });
+    qualFreitext();
+  }
+
+  /** Bei „sonstige" darf die Bezeichnung frei eingetragen werden. */
+  function qualFreitext() {
+    var frei = feldWert('a_qualifikation') === 'sonstige';
+    el('qualFreitextFeld').style.display = frei ? '' : 'none';
+  }
+
+  /** So steht die Qualifikation auf dem Protokoll. */
+  function qualifikationText(a) {
+    var q = a.qualifikation === 'sonstige' ? (a.qualifikationFrei || '') : (a.qualifikation || '');
+    var zusatz = [];
+    if (a.pruefung) zusatz.push('geprüft ' + a.pruefung);
+    if (a.institut) zusatz.push(a.institut);
+    return q + (zusatz.length ? ' · ' + zusatz.join(', ') : '');
   }
 
   function zeichneAuftragKurz() {
@@ -2062,6 +2107,7 @@ var App = (function () {
     a.datum = deDatum(a.datum);
     a.datumBis = deDatum(a.datumBis);
     a.berichtsdatum = deDatum(a.berichtsdatum || heuteISO());
+    a.qualifikationVoll = qualifikationText(S.auftrag);
     var baeume = S.baeume.map(function (b) {
       var k = JSON.parse(JSON.stringify(b));
       k.naechsteKontrolle = b.naechsteKontrolleText ||
@@ -2494,6 +2540,7 @@ var App = (function () {
     laden();
     papierkorbAufraeumen();
 
+    fuelleSelect('a_qualifikation', DATA.QUALIFIKATIONEN.concat(['sonstige']));
     fuelleSelect('a_kontrollart', DATA.KONTROLLART);
     fuelleSelect('a_belaubung', DATA.BELAUBUNG);
     fuelleSelect('a_witterung', DATA.WITTERUNG);
@@ -2525,9 +2572,11 @@ var App = (function () {
       S.auftrag.datum = this.value;
     });
     ['a_auftraggeber','a_objekt','a_auftragsNr','a_kontrollart','a_datum','a_datumBis',
-     'a_belaubung','a_witterung','a_kontrolleur','a_qualifikation','a_zertNr'].forEach(function (id) {
+     'a_belaubung','a_witterung','a_kontrolleur','a_qualifikation','a_qualifikationFrei',
+     'a_pruefung','a_institut'].forEach(function (id) {
       el(id).addEventListener('change', function () { auftragLesen(); sichern(); });
     });
+    el('a_qualifikation').addEventListener('change', qualFreitext);
     el('b_nr').addEventListener('input', function () {
       document.getElementById('titel').textContent = 'Baum ' + this.value;
     });
@@ -2614,7 +2663,8 @@ document.addEventListener('DOMContentLoaded', App.start);
  * PDF.erzeugen({
  *   auftrag: {
  *     auftraggeber, objekt, auftragsNr, kontrollart, datum, datumBis,
- *     belaubung, witterung, kontrolleur, qualifikation, zertNr, berichtsdatum
+ *     belaubung, witterung, kontrolleur, qualifikation, qualifikationVoll,
+ *     pruefung, institut, berichtsdatum
  *   },
  *   baeume: [{
  *     nr, stammzahl, artDt, artBot,
@@ -2764,13 +2814,27 @@ var PDF = (function () {
       var bw = sw * span;
       if (f.hl) rect(doc, x, zeileY, bw, zh, C.hell, null);
       t(doc, String(f.lab || '').toUpperCase(), x + 1.8, zeileY + 2.6, { size: 5.6, color: C.label });
-      t(doc, f.val == null ? '' : f.val, x + 1.8, zeileY + 6.1,
-        { size: 8.2, bold: true, color: f.hl ? C.gruen : C.text });
-      if (f.sub) {
-        var vb = doc.getTextWidth(String(f.val == null ? '' : f.val));
-        doc.setFont('helvetica', 'bold'); doc.setFontSize(8.2);
-        vb = doc.getTextWidth(String(f.val == null ? '' : f.val));
-        t(doc, f.sub, x + 1.8 + vb + 1.4, zeileY + 6.1, { size: 7, color: C.weich });
+
+      var wert = f.val == null ? '' : String(f.val),
+          platz = bw - 3.6,
+          farbe = f.hl ? C.gruen : C.text;
+      doc.setFont('helvetica', 'bold'); doc.setFontSize(8.2);
+
+      if (doc.getTextWidth(wert) > platz) {
+        /* Zu lang für eine Zeile: kleiner setzen und umbrechen, statt über den
+           Feldrand hinauszuschreiben. */
+        doc.setFontSize(6.6);
+        var zeilen = doc.splitTextToSize(wert + (f.sub ? ' ' + f.sub : ''), platz).slice(0, 2);
+        zeilen.forEach(function (z, i) {
+          t(doc, z, x + 1.8, zeileY + 4.9 + i * 2.6, { size: 6.6, bold: true, color: farbe });
+        });
+      } else {
+        t(doc, wert, x + 1.8, zeileY + 6.1, { size: 8.2, bold: true, color: farbe });
+        if (f.sub) {
+          doc.setFont('helvetica', 'bold'); doc.setFontSize(8.2);
+          var vb = doc.getTextWidth(wert);
+          t(doc, f.sub, x + 1.8 + vb + 1.4, zeileY + 6.1, { size: 7, color: C.weich });
+        }
       }
       line(doc, x + bw, zeileY, x + bw, zeileY + zh, C.fein);
       line(doc, x, zeileY + zh, x + bw, zeileY + zh, C.fein);
@@ -2846,8 +2910,7 @@ var PDF = (function () {
       { lab: 'Belaubungszustand', val: a.belaubung },
       { lab: 'Witterung',    val: a.witterung },
       { lab: 'Baumkontrolleur', val: a.kontrolleur, span: 2 },
-      { lab: 'Qualifikation', val: a.qualifikation,
-        sub: a.zertNr ? '· Zert.-Nr. ' + a.zertNr : '', span: 2 }
+      { lab: 'Qualifikation', val: a.qualifikationVoll || a.qualifikation, span: 2 }
     ], y);
     y += 2.4;
 
@@ -2884,7 +2947,28 @@ var PDF = (function () {
 
     /* Kontrollgänge – das Blatt als Baumkontrollbuch über vier Zyklen */
     y = blockTitel(doc, 'Kontrollgänge – Baumkontrollbuch', y, true);
-    var hist = b.historie && b.historie.length ? b.historie.slice(0, 4) : [];
+    /* Die erste Spalte ist die laufende Kontrolle, danach folgt die Historie.
+       So wird aus dem Blatt tatsächlich ein Baumkontrollbuch. */
+    var mn = MAP.massnahmen(b),
+        eu = mn.some(function (m) { return /eingehende untersuchung/i.test(m.text || ''); }),
+        faellung = mn.some(function (m) { return /fällung/i.test(m.text || ''); }),
+        pflege = mn.filter(function (m) {
+          return !/eingehende untersuchung|fällung|absperrung|verkehrslenkung/i.test(m.text || '');
+        }).map(function (m) { return m.text; }),
+        fristen = mn.map(function (m) { return m.frist; }).filter(Boolean);
+
+    var aktuell = {
+      datum: a.datum || '',
+      handlungsbedarf: mn.length ? 'ja' : 'nein',
+      eu: eu ? 'ja' : 'nein',
+      pflege: pflege.length ? pflege.join(', ') : '–',
+      faellung: faellung ? 'ja' : 'nein',
+      intervall: b.intervall || '',
+      frist: fristen.length ? fristen[0] : '–',
+      kuerzel: a.kontrolleur || ''
+    };
+
+    var hist = [aktuell].concat(b.historie || []).slice(0, 4);
     while (hist.length < 4) hist.push(null);
     var zeilenDef = [
       ['Datum',                 'datum'],
@@ -3140,7 +3224,7 @@ var PDF = (function () {
       ['Kontrollart', a.kontrollart || 'Regelkontrolle'],
       ['Kontrollzeitraum', a.datumBis ? (a.datum + ' – ' + a.datumBis) : a.datum],
       ['Belaubungszustand', a.belaubung], ['Umfang', anzahl + ' Bäume'],
-      ['Baumkontrolleur', a.kontrolleur + (a.qualifikation ? ', ' + a.qualifikation : '')],
+      ['Baumkontrolleur', a.kontrolleur + (a.qualifikationVoll ? ', ' + a.qualifikationVoll : '')],
       ['Berichtsdatum', a.berichtsdatum || a.datum]
     ];
     daten.forEach(function (d, i) {
@@ -3755,7 +3839,7 @@ var XLS = (function () {
       ['Belaubungszustand', a.belaubung],
       ['Witterung', a.witterung],
       ['Baumkontrolleur', a.kontrolleur],
-      ['Qualifikation', a.qualifikation + (a.zertNr ? ' (Zert.-Nr. ' + a.zertNr + ')' : '')],
+      ['Qualifikation', a.qualifikationVoll || a.qualifikation],
       [],
       ['Kontrollierte Bäume', baeume.length],
       ['davon stärker geschädigt', schwer],

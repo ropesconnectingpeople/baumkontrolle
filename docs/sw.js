@@ -1,5 +1,5 @@
 /* Service Worker – macht die App offline verfügbar. */
-var CACHE = 'baumkontrolle-de66169c';
+var CACHE = 'baumkontrolle-d52b6dd5';
 var DATEIEN = ['./', './index.html', './manifest.webmanifest',
                './icon-192.png', './icon-512.png', './apple-touch-icon.png'];
 
