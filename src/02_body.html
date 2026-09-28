@@ -2,7 +2,15 @@
   <button class="zurueck" id="btnZurueck" style="display:none">&#8249; Bäume</button>
   <h1 id="titel">Baumkontrolle</h1>
   <button class="aktion" id="btnAktion" style="display:none">Fertig</button>
+  <button class="zahnrad" id="btnZahnrad" onclick="App.zeige('einstellungen')"
+          title="Einstellungen">&#9881;</button>
 </header>
+
+<nav class="reiter" id="reiter">
+  <button id="rtKontrolle" onclick="App.zeige('liste')">Baumkontrolle</button>
+  <button id="rtAngebote" onclick="App.zeige('angebote')">Angebote</button>
+  <button id="rtKunden" onclick="App.zeige('kunden')">Kunden</button>
+</nav>
 
 <main>
 
@@ -12,7 +20,10 @@
     <h2>Auftrag</h2>
     <div class="inhalt" id="auftragKurz"></div>
     <div style="padding:0 14px 12px">
-      <button class="btn zweit" onclick="App.zeige('auftrag')">Auftragsdaten bearbeiten</button>
+      <div class="btnreihe">
+        <button class="btn zweit" onclick="App.zeige('auftrag')">Bearbeiten</button>
+        <button class="btn zweit" onclick="App.auftragWechsel()">Aufträge wechseln</button>
+      </div>
     </div>
   </div>
 
@@ -22,10 +33,7 @@
   </div>
 
   <button class="btn" onclick="App.neuerBaum()">+ Baum aufnehmen</button>
-  <div class="btnreihe">
-    <button class="btn zweit" onclick="App.zeige('ausgabe')">Ausgabe</button>
-    <button class="btn zweit" onclick="App.zeige('einstellungen')">Einstellungen</button>
-  </div>
+  <button class="btn zweit" onclick="App.farbNachschlag()">Jahresfarbe Kronensicherung nachschlagen</button>
 </div>
 
 <!-- ================= AUFTRAG ================= -->
@@ -35,6 +43,8 @@
     <div class="inhalt">
       <div class="feld"><label>Auftraggeber</label><input id="a_auftraggeber" placeholder="Name oder Firma"></div>
       <div class="feld"><label>Objekt</label><input id="a_objekt" placeholder="z. B. Wohnanlage Prehnsweg 12–18"></div>
+      <button class="btn zweit" onclick="App.gpsObjekt()">Objektstandort per GPS übernehmen</button>
+      <div class="hinweis" id="objektGps" style="margin-bottom:11px"></div>
       <div class="zeile">
         <div class="feld"><label>Auftrags-Nr.</label><input id="a_auftragsNr"></div>
         <div class="feld"><label>Kontrollart</label><select id="a_kontrollart"></select></div>
@@ -53,6 +63,18 @@
         <div class="feld"><label>Belaubungszustand</label><select id="a_belaubung"></select></div>
         <div class="feld"><label>Witterung</label><select id="a_witterung"></select></div>
       </div>
+      <div class="feld">
+        <label>Erfassungsrichtung</label>
+        <div class="wahlreihe">
+          <label id="richtungMit"><input type="radio" name="richtung" value="im Uhrzeigersinn"
+            onchange="App.richtung(this.value)">im Uhrzeigersinn</label>
+          <label id="richtungGegen"><input type="radio" name="richtung" value="gegen den Uhrzeigersinn"
+            onchange="App.richtung(this.value)">gegen den Uhrzeigersinn</label>
+        </div>
+        <div class="hinweis">Vom Zugang aus in einer Richtung durchgehen. Steht im Protokoll und
+          macht die Reihenfolge bei der Folgekontrolle nachvollziehbar – wichtig überall dort,
+          wo keine Nummern am Baum hängen.</div>
+      </div>
     </div>
   </div>
 
@@ -60,13 +82,13 @@
     <h2>Kontrolleur</h2>
     <div class="inhalt">
       <div class="feld"><label>Name</label><input id="a_kontrolleur"></div>
-      <div class="zeile">
-        <div class="feld"><label>Qualifikation</label><input id="a_qualifikation"
-          placeholder="FLL-zertifizierter Baumkontrolleur"></div>
-        <div class="feld"><label>Zertifikats-Nr.</label><input id="a_zertNr"></div>
-      </div>
-      <div class="hinweis">Name, Qualifikation und Datum gehören zu den Pflichtangaben der
-        Dokumentation und stehen auf jedem Protokollblatt.</div>
+      <div class="feld"><label>Qualifikation</label><select id="a_qualifikation"></select></div>
+      <div class="feld" id="qualFreitextFeld" style="display:none">
+        <label>Bezeichnung</label><input id="a_qualifikationFrei"
+          placeholder="Wie soll die Qualifikation im Protokoll stehen?"></div>
+      <div class="hinweis">Name, Qualifikation und Datum sind Pflichtangaben der Dokumentation
+        und stehen auf jedem Protokollblatt. Es gibt keine gesetzliche Regelung, wer
+        Baumkontrollen durchführen darf – maßgeblich ist die nachweisbare Fachkunde.</div>
     </div>
   </div>
 
@@ -78,45 +100,54 @@
   <div class="karte">
     <h2>Baum</h2>
     <div class="inhalt">
-      <div class="zeile drei">
-        <div class="feld"><label>Baum-Nr.</label><input id="b_nr"></div>
-        <div class="feld"><label>Stammzahl</label><input type="number" id="b_stammzahl" min="1" value="1"></div>
-        <div class="feld"><label>Alter (Jahre)</label><input id="b_alter" placeholder="ca."></div>
-      </div>
-      <div class="feld"><label>Baumart</label>
-        <button class="wahl" id="b_artKnopf" onclick="App.artWahl()">
-          <b id="b_artDt">Art wählen</b><span id="b_artBot"></span></button>
+      <div class="feld"><label>Baum-Nr.</label><input id="b_nr"></div>
+      <div class="feld artfeld"><label>Baumart</label>
+        <input id="b_artDt" placeholder="Art tippen, z. B. Eiche"
+               autocomplete="off" autocorrect="off" autocapitalize="words" spellcheck="false"
+               oninput="App.artTippen()" onfocus="App.artOeffnen()" onblur="App.artFertig()">
+        <div class="artvor" id="artVorschlaege" hidden onmousedown="return false"></div>
+        <div class="artbot" id="b_artBot"></div>
       </div>
       <div class="zeile drei">
         <div class="feld"><label>Höhe (m)</label><input type="number" id="b_hoehe" inputmode="decimal"></div>
         <div class="feld"><label>Krone Ø (m)</label><input type="number" id="b_kroneD" inputmode="decimal"></div>
-        <div class="feld"><label>Kronenansatz (m)</label><input type="number" id="b_kronenansatz" inputmode="decimal"></div>
+        <div class="feld"><label>Umfang (cm)</label><input type="number" id="b_stammumfang" inputmode="decimal"></div>
       </div>
-      <div class="zeile">
-        <div class="feld"><label>Stammumfang (cm)</label><input type="number" id="b_stammumfang" inputmode="decimal"></div>
-        <div class="feld"><label>Messhöhe</label><select id="b_messhoehe">
+      <button class="mehrknopf" id="knopfBaum" onclick="App.mehr('Baum')">
+        <span class="text">Weitere Angaben</span><span class="pfeil">&#9660;</span></button>
+      <div class="mehrblock" id="mehrBaum" hidden>
+        <div class="zeile drei">
+          <div class="feld"><label>Stammzahl</label><input type="number" id="b_stammzahl" min="1" value="1"></div>
+          <div class="feld"><label>Kronenansatz (m)</label><input type="number" id="b_kronenansatz" inputmode="decimal"></div>
+          <div class="feld"><label>Alter (Jahre)</label><input id="b_alter" placeholder="ca."></div>
+        </div>
+        <div class="feld"><label>Messhöhe Stammumfang</label><select id="b_messhoehe">
           <option value="1,00 m">1,00 m (FLL)</option><option value="1,30 m">1,30 m (BHD)</option></select></div>
+        <div class="hinweis">Höhe und Kronenbreite dürfen nach FLL um ± 2 m abweichen.
+          Die Messhöhe wird auf dem Protokoll mitgeführt.</div>
       </div>
-      <div class="hinweis">Höhe und Kronenbreite dürfen nach FLL um ± 2 m abweichen.
-        Die Messhöhe wird auf dem Protokoll mitgeführt.</div>
     </div>
   </div>
 
   <div class="karte">
     <h2>Standort</h2>
     <div class="inhalt">
+      <div class="feld"><label>Lagebeschreibung</label><input id="b_lage"
+        placeholder="Straße oder z. B. Nordwestecke, neben Gartenhaus"></div>
       <div class="zeile">
-        <div class="feld"><label>Straße</label><input id="b_strasse"></div>
         <div class="feld"><label>Haus-Nr.</label><input id="b_hausNr"></div>
-      </div>
-      <div class="zeile">
-        <div class="feld"><label>Flurstück</label><input id="b_flurstueck"></div>
         <div class="feld"><label>Baumumfeld</label><select id="b_umfeld"></select></div>
       </div>
-      <div class="feld"><label>Koordinaten</label>
-        <div class="zeile"><input id="b_gpsLat" placeholder="Breite"><input id="b_gpsLon" placeholder="Länge"></div>
-      </div>
       <button class="btn zweit" onclick="App.gps()">Standort per GPS übernehmen</button>
+      <div class="hinweis" id="gpsAnzeige"></div>
+      <button class="mehrknopf" id="knopfOrt" onclick="App.mehr('Ort')">
+        <span class="text">Weitere Angaben</span><span class="pfeil">&#9660;</span></button>
+      <div class="mehrblock" id="mehrOrt" hidden>
+        <div class="feld"><label>Flurstück</label><input id="b_flurstueck"></div>
+        <div class="feld"><label>Koordinaten</label>
+          <div class="zeile"><input id="b_gpsLat" placeholder="Breite"><input id="b_gpsLon" placeholder="Länge"></div>
+        </div>
+      </div>
     </div>
   </div>
 
@@ -175,6 +206,15 @@
   </div>
 
   <div class="karte">
+    <h2>Kronensicherungen</h2>
+    <div class="inhalt">
+      <div id="ksListe"></div>
+      <button class="btn zweit" onclick="App.ksNeu()">+ Kronensicherung</button>
+      <button class="btn zweit" onclick="App.farbNachschlag()">Jahresfarbe nachschlagen</button>
+    </div>
+  </div>
+
+  <div class="karte">
     <h2>Maßnahmen</h2>
     <div class="inhalt">
       <div id="massnahmenListe"></div>
@@ -206,10 +246,11 @@
 </div>
 
 <!-- ================= AUSGABE ================= -->
-<div class="view" id="view-ausgabe">
+<!-- ================= ERGEBNISSE ================= -->
+<div class="view" id="view-ergebnisse">
   <div class="kacheln" id="ausgabeKacheln"></div>
 
-  <div class="karte">
+<div class="karte">
     <h2>Protokoll</h2>
     <div class="inhalt">
       <button class="btn" onclick="App.pdf('auto')">PDF erzeugen</button>
@@ -220,6 +261,20 @@
   </div>
 
   <div class="karte">
+    <h2>Tabellen</h2>
+    <div class="inhalt">
+      <button class="btn zweit" onclick="App.excel()">Excel-Bestandsliste</button>
+      <button class="btn zweit" onclick="App.excelKalkulation()">Kalkulation mit Preisen</button>
+      <div class="hinweis">Preise erscheinen nur in der Kalkulation, nie im Kontrollprotokoll.</div>
+    </div>
+  </div>
+
+  </div>
+
+<!-- ================= ANGEBOTE ================= -->
+<div class="view" id="view-angebote">
+  <div class="hinweis" style="margin-bottom:12px">Aus den Befunden der laufenden Kontrolle. Die Positionen gehen nach sevDesk, dort entsteht das Angebot.</div>
+<div class="karte">
     <h2>Angebotspositionen für sevDesk</h2>
     <div class="inhalt">
       <div id="angebotSumme"></div>
@@ -252,16 +307,19 @@
     </div>
   </div>
 
-  <div class="karte">
-    <h2>Tabellen</h2>
-    <div class="inhalt">
-      <button class="btn zweit" onclick="App.excel()">Excel-Bestandsliste</button>
-      <button class="btn zweit" onclick="App.excelKalkulation()">Kalkulation mit Preisen</button>
-      <div class="hinweis">Preise erscheinen nur in der Kalkulation, nie im Kontrollprotokoll.</div>
-    </div>
   </div>
 
+<!-- ================= KUNDEN ================= -->
+<div class="view" id="view-kunden">
   <div class="karte">
+    <h2>Kunden <span id="kundenZahl"></span></h2>
+    <div id="kundenListe"></div>
+  </div>
+  <button class="btn" onclick="App.kundeNeu()">+ Kunde anlegen</button>
+</div>
+
+<div class="view" id="view-einstellungen">
+<div class="karte">
     <h2 class="grau">Sicherung</h2>
     <div class="inhalt">
       <button class="btn zweit" onclick="App.sicherungExport()">Sicherung speichern (JSON)</button>
@@ -272,10 +330,6 @@
         in die Historie und die Befunde werden geleert.</div>
     </div>
   </div>
-</div>
-
-<!-- ================= EINSTELLUNGEN ================= -->
-<div class="view" id="view-einstellungen">
   <div class="karte">
     <h2>Betrieb</h2>
     <div class="inhalt">

@@ -20,31 +20,40 @@ const AUS = path.join(__dirname, 'testausgabe');
   await page.waitForTimeout(400);
 
   // ---------- Auftrag ----------
-  await page.click('text=Auftragsdaten bearbeiten');
+  await page.click('#view-liste .btnreihe button:has-text("Bearbeiten")');
   await page.fill('#a_auftraggeber', 'Wohnungsgesellschaft Muster mbH');
   await page.fill('#a_objekt', 'Wohnanlage Prehnsweg 12–18');
   await page.fill('#a_auftragsNr', '2026-0147');
   await page.fill('#a_datum', '2026-08-04');
   await page.fill('#a_kontrolleur', 'Josua Hundertmark');
-  await page.fill('#a_zertNr', '1234/26');
+  await page.selectOption('#a_qualifikation', 'FLL-zertifizierter Baumkontrolleur');
   await page.selectOption('#a_witterung', 'trocken, bedeckt');
-  await page.click('text=Übernehmen');
+  await page.click('#view-auftrag .btn >> text="Übernehmen"');
   await page.waitForTimeout(200);
 
   // ---------- Baum 1 ----------
   await page.click('text=+ Baum aufnehmen');
   await page.waitForTimeout(200);
-  await page.click('#b_artKnopf');
-  await page.fill('#artSuche', 'Stieleiche');
+  await page.fill('#b_artDt', 'Stieleiche');
   await page.waitForTimeout(150);
-  await page.click('#artTreffer button:first-child');
+  await page.click('#artVorschlaege button:first-child');
+  await page.waitForTimeout(100);
   await page.fill('#b_hoehe', '18');
   await page.fill('#b_kroneD', '14');
   await page.fill('#b_stammumfang', '312');
+  // Weitere Angaben aufklappen, dort liegen Kronenansatz und Alter
+  if (!await page.isVisible('#b_kronenansatz')) {
+    await page.click('#knopfBaum');
+    await page.waitForTimeout(200);
+  }
   await page.fill('#b_kronenansatz', '4.5');
   await page.fill('#b_alter', 'ca. 120');
-  await page.fill('#b_strasse', 'Prehnsweg');
+  await page.fill('#b_lage', 'Prehnsweg');
   await page.fill('#b_hausNr', '14');
+  if (!await page.isVisible('#b_flurstueck')) {
+    await page.click('#knopfOrt');
+    await page.waitForTimeout(200);
+  }
   await page.fill('#b_flurstueck', 'Flur 3, Flst. 218/4');
   await page.selectOption('#b_umfeld', 'Rasen-/Grünfläche');
   await page.fill('#b_gpsLat', '53.55214');
@@ -61,7 +70,12 @@ const AUS = path.join(__dirname, 'testausgabe');
   if (vorschlag !== 'jährlich') fehler.push('FLL-Matrix falsch: erwartet jährlich, bekam ' + vorschlag);
 
   // Symptome
+  // Die Symptome liegen seit Fassung 2.1 in Reitergruppen, nur die aktive
+  // Gruppe steht im DOM. Vor jedem Klick auf die passende Gruppe schalten.
   for (const code of ['K2', 'K13', 'K15', 'S3', 'W4', 'V3']) {
+    const gruppe = code.replace(/[0-9]+$/, '');
+    await page.evaluate(g => App.symGruppe(g), gruppe);
+    await page.waitForTimeout(80);
     await page.click(`#lab${code} input`);
   }
   await page.waitForTimeout(200);
@@ -109,14 +123,14 @@ const AUS = path.join(__dirname, 'testausgabe');
   await page.waitForTimeout(300);
 
   // ---------- Baum 2 ----------
-  await page.click('#b_artKnopf');
-  await page.fill('#artSuche', 'Winterlinde');
+  await page.fill('#b_artDt', 'Winterlinde');
   await page.waitForTimeout(150);
-  await page.click('#artTreffer button:first-child');
+  await page.click('#artVorschlaege button:first-child');
+  await page.waitForTimeout(100);
   await page.fill('#b_hoehe', '14');
   await page.fill('#b_kroneD', '9');
   await page.fill('#b_stammumfang', '186');
-  await page.fill('#b_strasse', 'Prehnsweg');
+  await page.fill('#b_lage', 'Prehnsweg');
   await page.fill('#b_hausNr', '16');
   await page.selectOption('#b_phase', 'Reifephase');
   await page.selectOption('#b_zustand', 'gesund');
@@ -130,12 +144,12 @@ const AUS = path.join(__dirname, 'testausgabe');
   // ---------- Baum 3: gleiche Leistung, gleiche Höhenklasse wie Baum 1 ----------
   await page.click('text=+ Baum aufnehmen');
   await page.waitForTimeout(200);
-  await page.click('#b_artKnopf');
-  await page.fill('#artSuche', 'Rotbuche');
+  await page.fill('#b_artDt', 'Rotbuche');
   await page.waitForTimeout(150);
-  await page.click('#artTreffer button:first-child');
+  await page.click('#artVorschlaege button:first-child');
+  await page.waitForTimeout(100);
   await page.fill('#b_hoehe', '17');
-  await page.fill('#b_strasse', 'Prehnsweg');
+  await page.fill('#b_lage', 'Prehnsweg');
   await page.fill('#b_hausNr', '18');
   await page.selectOption('#b_phase', 'Alterungsphase');
   await page.selectOption('#b_zustand', 'leicht geschädigt');
@@ -153,7 +167,7 @@ const AUS = path.join(__dirname, 'testausgabe');
   if (zeilen !== 3) fehler.push('Baumliste: erwartet 3 Zeilen, gezählt ' + zeilen);
 
   // ---------- PDF ----------
-  await page.click('text=Ausgabe');
+  await page.evaluate(() => App.zeige('ergebnisse'));
   await page.waitForTimeout(250);
   const dl = page.waitForEvent('download', { timeout: 30000 });
   await page.click('text=PDF erzeugen');
@@ -170,8 +184,11 @@ const AUS = path.join(__dirname, 'testausgabe');
   if (!(wert > 0)) fehler.push('Auftragswert ist 0 – Preiszuordnung greift nicht');
   if (anzPosten !== 4) fehler.push('Positionen: erwartet 4, gezählt ' + anzPosten);
 
+  // Angebot und sevDesk-Positionen sitzen seit Fassung 3 im eigenen Reiter
+  await page.click('#rtAngebote');
+  await page.waitForTimeout(300);
   const dlA = page.waitForEvent('download', { timeout: 30000 });
-  await page.click('button:has-text("Angebot als PDF")');
+  await page.click('#view-angebote .btn >> text="Angebot als PDF"');
   const dA = await dlA;
   await dA.saveAs(path.join(AUS, 'angebot.pdf'));
   console.log('Angebot:', dA.suggestedFilename(),
@@ -212,7 +229,7 @@ const AUS = path.join(__dirname, 'testausgabe');
   const dP = await dlP;
   await dP.saveAs(path.join(AUS, 'produkte.csv'));
   console.log('Produkte:', dP.suggestedFilename());
-  await page.evaluate(() => App.zeige('ausgabe'));
+  await page.evaluate(() => App.zeige('ergebnisse'));
   await page.waitForTimeout(250);
 
   const dl2 = page.waitForEvent('download', { timeout: 30000 });

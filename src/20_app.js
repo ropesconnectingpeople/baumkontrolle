@@ -7,7 +7,9 @@ var App = (function () {
   'use strict';
 
   var VERSION = '2.0';
-  var SCHLUESSEL = 'baumkontrolle.v2';
+  var SCHLUESSEL = 'baumkontrolle.v2';      // alter Einzelplatz, nur noch zur Übernahme
+  var GEMEINSAM  = 'baumkontrolle.gemeinsam'; // Firmendaten, Preise, Artenspeicher
+  var AKTUELL    = 'baumkontrolle.aktuell';   // Kennung des offenen Auftrags
   var PAPIERKORB_TAGE = 30;
 
   /* --- Zustand ------------------------------------------------------------ */
@@ -21,18 +23,24 @@ var App = (function () {
   function leererZustand() {
     return {
       version: VERSION,
+      id: '',                     // Kennung des Auftrags in der Ablage
+      kundeId: '',                // zugehöriger Kunde
       auftrag: {
         auftraggeber: '', objekt: '', auftragsNr: '', kontrollart: 'Regelkontrolle',
         datum: heuteISO(), datumBis: '', belaubung: 'belaubt', witterung: 'trocken, bedeckt',
-        kontrolleur: '', qualifikation: 'FLL-zertifizierter Baumkontrolleur', zertNr: '',
+        erfassungsrichtung: '',
+        kontrolleur: '', qualifikation: 'FLL-zertifizierter Baumkontrolleur',
+        qualifikationFrei: '',
         berichtsdatum: heuteISO()
       },
       baeume: [],
       papierkorb: [],
+      artenZuletzt: [],           // Schnellwahl im Baumart-Feld
       einstellungen: {
         name: 'Baumpflege Hundertmark',
         zusatz: 'Fachbetrieb für Baumpflege · Baumkontrolle · Verkehrssicherheit',
-        anschrift: '', kontakt: '', ust: 19, stundensatz: 85
+        anschrift: '', kontakt: '', ust: 19, stundensatz: 85,
+        mehrBaum: false, mehrOrt: false
       },
       preise: null,               // null = Standardpreise aus DATA
       seitSicherung: 0            // Bäume seit der letzten abgelegten Sicherung
@@ -50,10 +58,10 @@ var App = (function () {
     return p.length === 3 ? p[2] + '.' + p[1] + '.' + p[0] : iso;
   }
 
-  function plusJahre(iso, jahre) {
-    if (!iso || !jahre) return '';
+  function plusMonate(iso, monate) {
+    if (!iso || !monate) return '';
     var d = new Date(iso);
-    d.setFullYear(d.getFullYear() + jahre);
+    d.setMonth(d.getMonth() + monate);
     return d.toISOString().slice(0, 10);
   }
 
@@ -74,33 +82,127 @@ var App = (function () {
 
   /* =========================================================================
    * Speicherung
+   *
+   * Die Aufträge liegen einzeln in IndexedDB, damit mehrere nebeneinander
+   * laufen können und die Fotos nicht mehr an der Grenze von localStorage
+   * scheitern. In localStorage bleibt nur, was klein ist und sofort beim
+   * Start gebraucht wird: Firmendaten, Preisliste, zuletzt genutzte Arten
+   * und die Kennung des offenen Auftrags.
    * ====================================================================== */
-  function sichern() {
-    var text = JSON.stringify(S);
+
+  function neueId() {
+    return 'a' + Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
+  }
+
+  /** Name des Auftrags in der Umschaltliste. */
+  function auftragName(a) {
+    a = a || S.auftrag;
+    return a.objekt || a.auftraggeber || 'Ohne Namen';
+  }
+
+  function satz() {
+    return {
+      id: S.id,
+      kundeId: S.kundeId || '',
+      name: auftragName(),
+      geaendert: new Date().toISOString(),
+      baeume: S.baeume.length,
+      daten: {
+        version: VERSION, auftrag: S.auftrag, baeume: S.baeume,
+        papierkorb: S.papierkorb, seitSicherung: S.seitSicherung,
+        gesichert: S.gesichert
+      }
+    };
+  }
+
+  function gemeinsamSichern() {
     try {
-      localStorage.setItem(SCHLUESSEL, text);
+      localStorage.setItem(GEMEINSAM, JSON.stringify({
+        einstellungen: S.einstellungen,
+        preise: S.preise,
+        artenZuletzt: S.artenZuletzt
+      }));
+      if (S.id) localStorage.setItem(AKTUELL, S.id);
+    } catch (e) { /* voll oder blockiert, das ist hier nicht kritisch */ }
+  }
+
+  function gemeinsamLaden() {
+    try {
+      var g = JSON.parse(localStorage.getItem(GEMEINSAM) || '{}');
+      if (g.einstellungen) S.einstellungen = g.einstellungen;
+      if (g.preise) S.preise = g.preise;
+      if (g.artenZuletzt) S.artenZuletzt = g.artenZuletzt;
+    } catch (e) { /* dann eben Standardwerte */ }
+  }
+
+  function sichern() {
+    gemeinsamSichern();
+    if (!S.id) S.id = neueId();
+    if (!DB.nutzbar()) return notSichern();
+    DB.schreiben(satz(), function (fehler) {
+      if (fehler) notSichern();
+      else speicherFallback = null;
+    });
+    return true;
+  }
+
+  /**
+   * Rückfall, wenn IndexedDB nicht will, etwa im privaten Modus.
+   * Dann gilt wieder die alte Enge, und der Kontrolleur muss es wissen.
+   */
+  function notSichern() {
+    try {
+      localStorage.setItem(SCHLUESSEL, JSON.stringify(S));
       speicherFallback = null;
       return true;
     } catch (e) {
-      /* Speicher voll: älteste Papierkorb-Einträge opfern, nie die laufende Erfassung */
-      var geopfert = 0;
-      while (S.papierkorb.length && geopfert < 50) {
-        S.papierkorb.sort(function (a, b) { return (a.geloescht || '').localeCompare(b.geloescht || ''); });
-        S.papierkorb.shift(); geopfert++;
-        try {
-          localStorage.setItem(SCHLUESSEL, JSON.stringify(S));
-          melde(geopfert + (geopfert === 1 ? ' alter Papierkorb-Eintrag wurde' : ' alte Papierkorb-Einträge wurden') +
-                ' verworfen, um Platz zu schaffen.');
-          return true;
-        } catch (e2) { /* weiter opfern */ }
-      }
       speicherFallback = S;
-      melde('Speicher voll. Bitte jetzt eine Sicherung ablegen.', 'Ausgabe', function () { zeige('ausgabe'); });
+      melde('Speicher voll. Bitte jetzt eine Sicherung ablegen.', 'Sicherung', function () { zeige('einstellungen'); });
       return false;
     }
   }
 
+  /** Einen Auftragssatz in den laufenden Zustand übernehmen. */
+  function satzUebernehmen(rec) {
+    var leer = leererZustand();
+    S.id = rec.id;
+    S.kundeId = rec.kundeId || '';
+    S.auftrag = rec.daten.auftrag || leer.auftrag;
+    S.baeume = rec.daten.baeume || [];
+    S.papierkorb = rec.daten.papierkorb || [];
+    S.seitSicherung = rec.daten.seitSicherung || 0;
+    S.gesichert = rec.daten.gesichert;
+  }
+
+  /**
+   * Beim ersten Start nach der Umstellung liegt der bisherige Auftrag noch
+   * im alten localStorage-Platz. Der wird einmalig übernommen und der alte
+   * Platz geräumt, damit die 4 MB wieder frei sind.
+   */
+  function altenBestandUebernehmen(fertig) {
+    var roh = null;
+    try { roh = localStorage.getItem(SCHLUESSEL); } catch (e) {}
+    if (!roh) return fertig(null);
+    var d;
+    try { d = JSON.parse(roh); } catch (e) { return fertig(null); }
+    if (!d || !d.baeume) return fertig(null);
+
+    var rec = {
+      id: neueId(), name: d.auftrag && (d.auftrag.objekt || d.auftrag.auftraggeber) || 'Übernommen',
+      geaendert: new Date().toISOString(), baeume: d.baeume.length,
+      daten: { version: VERSION, auftrag: d.auftrag, baeume: d.baeume,
+               papierkorb: d.papierkorb || [], seitSicherung: d.seitSicherung || 0,
+               gesichert: d.gesichert }
+    };
+    DB.schreiben(rec, function (fehler) {
+      if (fehler) return fertig(null);
+      try { localStorage.removeItem(SCHLUESSEL); } catch (e) {}
+      fertig(rec);
+    });
+  }
+
   function laden() {
+    /* nur noch der Rückfallweg, wenn IndexedDB nicht zur Verfügung steht */
     try {
       var roh = localStorage.getItem(SCHLUESSEL);
       if (!roh) return;
@@ -109,10 +211,287 @@ var App = (function () {
         S = d;
         if (!S.papierkorb) S.papierkorb = [];
         if (!S.einstellungen) S.einstellungen = leererZustand().einstellungen;
+        if (!S.artenZuletzt) S.artenZuletzt = [];
       }
     } catch (e) {
       melde('Gespeicherte Daten konnten nicht gelesen werden.');
     }
+  }
+
+  /* =========================================================================
+   * Mehrere Aufträge nebeneinander
+   *
+   * Der Kontrolleur hat an einem Tag oft zwei Objekte offen. Bisher hielt die
+   * App genau einen Auftrag; für den zweiten musste man sichern, zurücksetzen
+   * und am Ende beides wieder zusammensuchen. Jetzt liegen sie nebeneinander
+   * und man schaltet um.
+   * ====================================================================== */
+
+  function auftragStarten() {
+    if (!DB.nutzbar()) { laden(); auftragFertig(); return; }
+
+    var gewuenscht = '';
+    try { gewuenscht = localStorage.getItem(AKTUELL) || ''; } catch (e) {}
+
+    DB.alle(function (fehler, liste) {
+      if (fehler) { laden(); auftragFertig(); return; }
+      liste = liste || [];
+
+      if (!liste.length) {
+        return altenBestandUebernehmen(function (rec) {
+          if (rec) satzUebernehmen(rec);
+          auftragFertig();
+        });
+      }
+      kundenUebernehmen(liste, function () {});
+      var rec = null;
+      liste.forEach(function (r) { if (r.id === gewuenscht) rec = r; });
+      if (!rec) {
+        liste.sort(function (a, b) { return (b.geaendert || '').localeCompare(a.geaendert || ''); });
+        rec = liste[0];
+      }
+      satzUebernehmen(rec);
+      auftragFertig();
+    });
+  }
+
+  function auftragFertig() {
+    if (!S.id) S.id = neueId();
+    papierkorbAufraeumen();
+    auftragSchreiben();
+    richtungZeigen();
+    objektGpsAnzeige();
+    zeichneAuftragKurz();
+    zeichneListe();
+    gemeinsamSichern();
+  }
+
+  /** Umschaltliste. Zeigt jeden Auftrag mit Objekt, Bäumen und Datum. */
+  function auftragWechsel() {
+    blendeAuf('Aufträge', '<div class="hinweis">Wird geladen …</div>');
+    if (ansicht === 'baum') baumLesen();
+    sichern();
+    DB.alle(function (fehler, liste) {
+      if (fehler || !liste) {
+        el('blendeInhalt').innerHTML =
+          '<div class="fehlkasten">Die Auftragsablage ist auf diesem Gerät nicht verfügbar. ' +
+          'Es bleibt bei einem Auftrag.</div>';
+        return;
+      }
+      liste.sort(function (a, b) { return (b.geaendert || '').localeCompare(a.geaendert || ''); });
+      el('blendeInhalt').innerHTML = liste.map(function (r) {
+        var offen = r.id === S.id;
+        return '<button class="wahl' + (offen ? ' an' : '') + '" onclick="App.auftragOeffnen(' +
+          esc(JSON.stringify(r.id)) + ')"><b>' + esc(r.name || 'Ohne Namen') +
+          (offen ? ' · offen' : '') + '</b><span>' +
+          (r.baeume || 0) + (r.baeume === 1 ? ' Baum' : ' Bäume') +
+          ' · zuletzt ' + esc(deDatum((r.geaendert || '').slice(0, 10))) + '</span></button>';
+      }).join('') +
+      '<div class="trenner"></div>' +
+      '<button class="btn" onclick="App.auftragNeu()">+ Neuer Auftrag</button>' +
+      (liste.length > 1
+        ? '<button class="btn zweit" onclick="App.auftragWegFrage()">Diesen Auftrag löschen</button>'
+        : '');
+    });
+  }
+
+  function auftragOeffnen(id) {
+    if (id === S.id) return blendeZu();
+    DB.lesen(id, function (fehler, rec) {
+      if (fehler || !rec) return melde('Der Auftrag lässt sich nicht öffnen.');
+      satzUebernehmen(rec);
+      aktuellerBaum = null;
+      gemeinsamSichern();
+      blendeZu();
+      auftragFertig();
+      zeige('liste');
+      melde('Offen: ' + auftragName());
+    });
+  }
+
+  function auftragNeu(kundeId) {
+    var leer = leererZustand();
+    S.id = neueId();
+    S.auftrag = leer.auftrag;
+    S.baeume = [];
+    S.papierkorb = [];
+    S.seitSicherung = 0;
+    S.gesichert = null;
+    S.kundeId = kundeId || '';
+    aktuellerBaum = null;
+    sichern();
+    blendeZu();
+    auftragFertig();
+    zeige('auftrag');
+    melde('Neuer Auftrag. Die Firmendaten und die Preisliste gelten weiter.');
+  }
+
+  function auftragWegFrage() {
+    blendeAuf('Auftrag löschen', '<div class="warnkasten">„' + esc(auftragName()) +
+      '" mit ' + S.baeume.length + (S.baeume.length === 1 ? ' Baum' : ' Bäumen') +
+      ' wird endgültig gelöscht. Das lässt sich nicht rückgängig machen. ' +
+      'Lege vorher eine Sicherung ab, wenn du die Daten noch brauchst.</div>' +
+      '<button class="btn rot" onclick="App.auftragWeg()">Endgültig löschen</button>' +
+      '<button class="btn zweit" onclick="App.blendeZu()">Abbrechen</button>');
+  }
+
+  function auftragWeg() {
+    var weg = S.id;
+    DB.loeschen(weg, function () {
+      DB.alle(function (fehler, liste) {
+        liste = (liste || []).filter(function (r) { return r.id !== weg; });
+        if (liste.length) {
+          liste.sort(function (a, b) { return (b.geaendert || '').localeCompare(a.geaendert || ''); });
+          satzUebernehmen(liste[0]);
+        } else {
+          var leer = leererZustand();
+          S.id = neueId(); S.auftrag = leer.auftrag; S.baeume = [];
+          S.papierkorb = []; S.seitSicherung = 0; S.gesichert = null;
+        }
+        aktuellerBaum = null;
+        gemeinsamSichern();
+        blendeZu();
+        auftragFertig();
+        zeige('liste');
+        melde('Auftrag gelöscht.');
+      });
+    });
+  }
+
+  /* =========================================================================
+   * Kunden
+   *
+   * Flach gehalten: ein Kunde, darunter seine Kontrollen. Keine Objekte als
+   * eigene Ebene, denn eine Kontrolle gilt immer einem Grundstück. Für große
+   * Liegenschaften mit Kartenpflege ist ohnehin ImmoSpector Tree vorgesehen.
+   * ====================================================================== */
+
+  var kundenZwischen = [];      // zuletzt gelesene Kundenliste, für die Anzeige
+
+  function kundenLesen(fertig) {
+    if (!DB.nutzbar()) return fertig([]);
+    DB.kunden.alle(function (fehler, liste) {
+      kundenZwischen = (fehler || !liste) ? [] : liste;
+      kundenZwischen.sort(function (a, b) {
+        return (a.name || '').localeCompare(b.name || '', 'de');
+      });
+      fertig(kundenZwischen);
+    });
+  }
+
+  function zeichneKunden() {
+    kundenLesen(function (kunden) {
+      DB.alle(function (f2, auftraege) {
+        auftraege = auftraege || [];
+        var zahl = {};
+        auftraege.forEach(function (a) {
+          if (a.kundeId) zahl[a.kundeId] = (zahl[a.kundeId] || 0) + 1;
+        });
+        el('kundenZahl').textContent = kunden.length ? '(' + kunden.length + ')' : '';
+        el('kundenListe').innerHTML = kunden.length
+          ? kunden.map(function (k) {
+              var n = zahl[k.id] || 0;
+              return '<div class="baumzeile z-grau" onclick="App.kundeOeffnen(' +
+                esc(JSON.stringify(k.id)) + ')">' +
+                '<div class="txt"><b>' + esc(k.name) + '</b><span>' +
+                esc([k.anschrift, n ? n + (n === 1 ? ' Kontrolle' : ' Kontrollen') : 'noch keine Kontrolle']
+                    .filter(Boolean).join(' · ')) + '</span></div></div>';
+            }).join('')
+          : '<div class="leer"><div class="zeichen">&#9635;</div>Noch kein Kunde angelegt.</div>';
+      });
+    });
+  }
+
+  function kundeNeu(id) {
+    var k = id ? kundenZwischen.filter(function (x) { return x.id === id; })[0] : null;
+    k = k || { id: '', name: '', anschrift: '', kontakt: '', notiz: '' };
+    blendeAuf(id ? 'Kunde bearbeiten' : 'Kunde anlegen',
+      '<div class="feld"><label>Name oder Firma</label>' +
+      '<input id="k_name" value="' + esc(k.name) + '"></div>' +
+      '<div class="feld"><label>Anschrift</label>' +
+      '<input id="k_anschrift" value="' + esc(k.anschrift) + '" placeholder="Straße, PLZ Ort"></div>' +
+      '<div class="feld"><label>Kontakt</label>' +
+      '<input id="k_kontakt" value="' + esc(k.kontakt) + '" placeholder="Telefon oder E-Mail"></div>' +
+      '<div class="feld"><label>Notiz</label>' +
+      '<textarea id="k_notiz">' + esc(k.notiz) + '</textarea></div>' +
+      '<button class="btn" onclick="App.kundeSpeichern(' + esc(JSON.stringify(k.id)) + ')">Speichern</button>');
+    setTimeout(function () { var f = el('k_name'); if (f) f.focus(); }, 150);
+  }
+
+  function kundeSpeichern(id) {
+    var name = (feldWert('k_name') || '').trim();
+    if (!name) return melde('Ohne Namen geht es nicht.');
+    var k = {
+      id: id || neueId(),
+      name: name,
+      anschrift: (feldWert('k_anschrift') || '').trim(),
+      kontakt: (feldWert('k_kontakt') || '').trim(),
+      notiz: (feldWert('k_notiz') || '').trim(),
+      angelegt: id ? undefined : new Date().toISOString()
+    };
+    DB.kunden.schreiben(k, function (fehler) {
+      if (fehler) return melde('Der Kunde ließ sich nicht speichern.');
+      blendeZu();
+      zeichneKunden();
+      melde(id ? 'Kunde geändert.' : 'Kunde angelegt.');
+    });
+  }
+
+  /** Kunde mit seinen Kontrollen. Von hier aus wird eine Kontrolle geöffnet. */
+  function kundeOeffnen(id) {
+    var k = kundenZwischen.filter(function (x) { return x.id === id; })[0];
+    if (!k) return;
+    DB.alle(function (fehler, auftraege) {
+      var meine = (auftraege || []).filter(function (a) { return a.kundeId === id; });
+      meine.sort(function (a, b) { return (b.geaendert || '').localeCompare(a.geaendert || ''); });
+      blendeAuf(k.name,
+        (k.anschrift || k.kontakt
+          ? '<div class="hinweis" style="margin-bottom:12px">' +
+            esc([k.anschrift, k.kontakt].filter(Boolean).join(' · ')) + '</div>' : '') +
+        (meine.length
+          ? meine.map(function (a) {
+              return '<button class="wahl' + (a.id === S.id ? ' an' : '') +
+                '" onclick="App.auftragOeffnen(' + esc(JSON.stringify(a.id)) + ')"><b>' +
+                esc(a.name || 'Ohne Namen') + (a.id === S.id ? ' · offen' : '') +
+                '</b><span>' + (a.baeume || 0) + (a.baeume === 1 ? ' Baum' : ' Bäume') +
+                ' · ' + esc(deDatum((a.geaendert || '').slice(0, 10))) + '</span></button>';
+            }).join('')
+          : '<div class="hinweis">Noch keine Kontrolle für diesen Kunden.</div>') +
+        '<div class="trenner"></div>' +
+        '<button class="btn" onclick="App.auftragNeu(' + esc(JSON.stringify(id)) + ')">+ Kontrolle für diesen Kunden</button>' +
+        '<button class="btn zweit" onclick="App.kundeNeu(' + esc(JSON.stringify(id)) + ')">Kundendaten bearbeiten</button>');
+    });
+  }
+
+  /**
+   * Bestehende Aufträge kennen nur den Freitext „Auftraggeber". Daraus wird
+   * einmalig je eindeutigem Namen ein Kunde gebaut und verknüpft.
+   */
+  function kundenUebernehmen(auftraege, fertig) {
+    var ohne = auftraege.filter(function (a) {
+      return !a.kundeId && a.daten && a.daten.auftrag && a.daten.auftrag.auftraggeber;
+    });
+    if (!ohne.length) return fertig();
+
+    kundenLesen(function (kunden) {
+      var nachName = {};
+      kunden.forEach(function (k) { nachName[k.name.toLowerCase()] = k; });
+      var offen = ohne.length;
+      function fertigEiner() { if (--offen === 0) fertig(); }
+
+      ohne.forEach(function (a) {
+        var name = a.daten.auftrag.auftraggeber.trim(),
+            k = nachName[name.toLowerCase()];
+        if (!k) {
+          k = { id: neueId(), name: name, anschrift: '', kontakt: '', notiz: '',
+                angelegt: new Date().toISOString() };
+          nachName[name.toLowerCase()] = k;
+          DB.kunden.schreiben(k);
+        }
+        a.kundeId = k.id;
+        DB.schreiben(a, fertigEiner);
+      });
+    });
   }
 
   /** Verfallene Papierkorb-Einträge beim Start entfernen. */
@@ -156,7 +535,15 @@ var App = (function () {
    * ====================================================================== */
   var TITEL = {
     liste: 'Baumkontrolle', auftrag: 'Auftrag', baum: 'Baum',
-    ausgabe: 'Ausgabe', einstellungen: 'Einstellungen'
+    ergebnisse: 'Ergebnisse', angebote: 'Angebote', kunden: 'Kunden',
+    kunde: 'Kunde', einstellungen: 'Einstellungen'
+  };
+
+  /* Welcher Reiter oben leuchtet, wenn eine Ansicht offen ist. */
+  var REITER = {
+    liste: 'rtKontrolle', auftrag: 'rtKontrolle', baum: 'rtKontrolle',
+    ergebnisse: 'rtKontrolle', angebote: 'rtAngebote',
+    kunden: 'rtKunden', kunde: 'rtKunden'
   };
 
   function zeige(name, ohneHistorie) {
@@ -168,13 +555,27 @@ var App = (function () {
 
     document.getElementById('titel').textContent =
       name === 'baum' ? ('Baum ' + (feldWert('b_nr') || '')) : TITEL[name];
-    document.getElementById('btnZurueck').style.display = name === 'liste' ? 'none' : '';
+    /* Zurück gibt es nur in Unteransichten. Die drei Reiter sind gleichrangig,
+       dort wäre ein Zurück-Knopf irreführend. */
+    var reiterAnsicht = (name === 'liste' || name === 'angebote' || name === 'kunden');
+    document.getElementById('btnZurueck').style.display = reiterAnsicht ? 'none' : '';
     var akt = document.getElementById('btnAktion');
     akt.style.display = name === 'baum' ? '' : 'none';
 
     if (name === 'liste')         { zeichneListe(); zeichneAuftragKurz(); }
-    if (name === 'ausgabe')       zeichneAusgabe();
+    if (name === 'ergebnisse' || name === 'angebote') zeichneAusgabe();
+    if (name === 'kunden')        zeichneKunden();
     if (name === 'einstellungen') { zeichneEinstellungen(); zeichnePapierkorb(); }
+
+    /* Reiterleiste im Baum-Detail und im Auftrag ausblenden, dort sitzen die
+       Speichern-Knöpfe am Seitenende und der Platz wird gebraucht. */
+    var mitReitern = !(name === 'baum' || name === 'auftrag');
+    el('reiter').className = 'reiter' + (mitReitern ? '' : ' aus');
+    el('btnZahnrad').style.display = mitReitern ? '' : 'none';
+    ['rtKontrolle', 'rtAngebote', 'rtKunden'].forEach(function (id) {
+      var k = el(id);
+      if (k) k.className = (REITER[name] === id) ? 'aktiv' : '';
+    });
 
     window.scrollTo(0, 0);
     if (!ohneHistorie) history.pushState({ view: name }, '', '');
@@ -215,7 +616,7 @@ var App = (function () {
   function auftragLesen() {
     var a = S.auftrag;
     ['auftraggeber','objekt','auftragsNr','kontrollart','datum','datumBis','belaubung',
-     'witterung','kontrolleur','qualifikation','zertNr'].forEach(function (k) {
+     'witterung','kontrolleur','qualifikation','qualifikationFrei'].forEach(function (k) {
       a[k] = feldWert('a_' + k);
     });
     a.berichtsdatum = a.berichtsdatum || heuteISO();
@@ -224,9 +625,56 @@ var App = (function () {
   function auftragSchreiben() {
     var a = S.auftrag;
     ['auftraggeber','objekt','auftragsNr','kontrollart','datum','datumBis','belaubung',
-     'witterung','kontrolleur','qualifikation','zertNr'].forEach(function (k) {
+     'witterung','kontrolleur','qualifikation','qualifikationFrei'].forEach(function (k) {
       setzeFeld('a_' + k, a[k]);
     });
+    qualFreitext();
+  }
+
+  /** Bei „sonstige" darf die Bezeichnung frei eingetragen werden. */
+  function qualFreitext() {
+    var frei = feldWert('a_qualifikation') === 'sonstige';
+    el('qualFreitextFeld').style.display = frei ? '' : 'none';
+  }
+
+  /** Erfassungsrichtung – gilt fürs ganze Objekt, nicht für den einzelnen Baum. */
+  function richtung(wert) {
+    S.auftrag.erfassungsrichtung = (S.auftrag.erfassungsrichtung === wert) ? '' : wert;
+    richtungZeigen();
+    sichern();
+  }
+
+  function richtungZeigen() {
+    var wert = S.auftrag.erfassungsrichtung || '';
+    [['richtungMit', 'im Uhrzeigersinn'], ['richtungGegen', 'gegen den Uhrzeigersinn']]
+      .forEach(function (p) {
+        var lab = el(p[0]);
+        if (!lab) return;
+        lab.className = (wert === p[1]) ? 'an' : '';
+        lab.querySelector('input').checked = (wert === p[1]);
+      });
+  }
+
+  /** Klappblock „Weitere Angaben". Der Zustand bleibt erhalten – wer die
+   *  Felder braucht, klappt einmal auf und hat beim nächsten Baum Ruhe. */
+  function mehr(welcher, nurSetzen) {
+    var schluessel = 'mehr' + welcher,
+        block = el('mehr' + welcher),
+        knopf = el('knopf' + welcher);
+    if (!block || !knopf) return;
+    if (!nurSetzen) {
+      S.einstellungen[schluessel] = !S.einstellungen[schluessel];
+      sichern();
+    }
+    var offen = !!S.einstellungen[schluessel];
+    block.hidden = !offen;
+    knopf.className = 'mehrknopf' + (offen ? ' offen' : '');
+    knopf.querySelector('.text').textContent = offen ? 'Weniger anzeigen' : 'Weitere Angaben';
+  }
+
+  /** So steht die Qualifikation auf dem Protokoll. */
+  function qualifikationText(a) {
+    return a.qualifikation === 'sonstige' ? (a.qualifikationFrei || '') : (a.qualifikation || '');
   }
 
   function zeichneAuftragKurz() {
@@ -257,18 +705,32 @@ var App = (function () {
     box.innerHTML = S.baeume.map(function (b, i) {
       var mn = b.massnahmen || [],
           stufe = mn.length ? Math.min.apply(null, mn.map(function (m) { return m.stufe || 5; })) : null,
-          punkt = stufe === 1 || stufe === 2 ? 'p-rot' : (mn.length ? 'p-grau' : 'p-gruen'),
-          zeile2 = [b.artDt, b.hoehe ? b.hoehe + ' m' : '', b.zustand,
-                    mn.length ? mn.length + (mn.length === 1 ? ' Maßnahme' : ' Maßnahmen') : ''
-                   ].filter(Boolean).join(' · ');
-      return '<div class="baumzeile" id="bz' + i + '">' +
+          /* Die Farbe der Zeile zeigt den Zustand, nicht die Maßnahmen. Beim
+             Durchscrollen soll man den Bestand sehen, nicht die Arbeitsliste. */
+          ampel = b.zustand === 'stärker geschädigt' ? 'z-rot'
+                : (b.zustand === 'leicht geschädigt' ? 'z-gelb'
+                : (b.zustand === 'gesund' ? 'z-gruen' : 'z-grau')),
+          fakten = [b.hoehe ? b.hoehe + ' m' : '',
+                    b.stammumfang ? b.stammumfang + ' cm' : '',
+                    b.lage || b.hausNr || ''].filter(Boolean).join(' · ');
+      return '<div class="baumzeile ' + ampel + '" id="bz' + i + '">' +
         '<div class="nr">' + esc(b.nr || (i + 1)) + '</div>' +
-        '<div class="punkt ' + punkt + '"></div>' +
         '<div class="txt" onclick="App.baumOeffnen(' + i + ')">' +
           '<b>' + esc(b.artDt || 'Ohne Art') + '</b>' +
-          '<span>' + esc(zeile2 || 'noch nicht bewertet') + '</span></div>' +
+          '<span>' + esc(fakten || 'noch nichts gemessen') + '</span></div>' +
+        '<div class="marken">' +
+          (b.zustand ? '<span class="zmark">' + esc(kurzZustand(b.zustand)) + '</span>' : '') +
+          (stufe ? '<span class="dring d' + stufe + '">' + esc(DATA.DRINGLICHKEIT[stufe].kurz) + '</span>' : '') +
+        '</div>' +
         '<button class="weg" onclick="App.loeschFrage(' + i + ')">&#128465;</button></div>';
     }).join('');
+  }
+
+  /** „stärker geschädigt" passt nicht in eine Marke, „stärker" schon. */
+  function kurzZustand(z) {
+    if (z === 'stärker geschädigt') return 'stärker gesch.';
+    if (z === 'leicht geschädigt') return 'leicht gesch.';
+    return z;
   }
 
   /** Inline-Abfrage statt Systemdialog. */
@@ -317,13 +779,13 @@ var App = (function () {
     S.baeume.push({
       nr: nr, stammzahl: 1, artDt: '', artBot: '', hoehe: '', kroneD: '', stammumfang: '',
       messhoehe: '1,00 m', kronenansatz: '', alter: '',
-      strasse: S.baeume.length ? (S.baeume[S.baeume.length - 1].strasse || '') : '',
+      lage: S.baeume.length ? (S.baeume[S.baeume.length - 1].lage || '') : '',
       hausNr: '', flurstueck: '', umfeld: '', gpsLat: '', gpsLon: '',
       phase: 'Reifephase', zustand: 'gesund', erwartung: 'höher', roloff: '',
       intervallMatrix: '', intervall: '', intervallManuell: false, naechsteKontrolle: '',
       befunde: { K: [], S: [], W: [], Wu: [], V: [] },
       pilz: null, grenzen: '', bemerkung: '', befundtext: '',
-      massnahmen: [], fotos: [], historie: []
+      massnahmen: [], ks: [], fotos: [], historie: []
     });
     baumOeffnen(S.baeume.length - 1);
   }
@@ -343,18 +805,24 @@ var App = (function () {
     var b = S.baeume[i];
     if (!b) return;
 
-    ['nr','stammzahl','alter','hoehe','kroneD','kronenansatz','stammumfang','messhoehe',
-     'strasse','hausNr','flurstueck','umfeld','gpsLat','gpsLon','phase','zustand','erwartung',
+    ['nr','artDt','stammzahl','alter','hoehe','kroneD','kronenansatz','stammumfang','messhoehe',
+     'lage','hausNr','flurstueck','umfeld','gpsLat','gpsLon','phase','zustand','erwartung',
      'roloff','intervall','befundtext','grenzen','bemerkung'].forEach(function (k) {
       setzeFeld('b_' + k, b[k]);
     });
-    el('b_artDt').textContent = b.artDt || 'Art wählen';
-    el('b_artBot').textContent = b.artBot || '';
+    if (!b.lage && b.strasse) setzeFeld('b_lage', b.strasse);   /* aus früheren Fassungen */
+    artStand();
+    artZu();
 
+    symGruppe = 'K';
+    mehr('Baum', true);
+    mehr('Ort', true);
+    gpsAnzeige();
     zeichneSymptome(b);
     zeichnePilz(b);
     zeichneGrenzenWahl();
     zeichneMassnahmen(b);
+    zeichneKS(b);
     zeichneFotos(b);
     zeichneHistorie(b);
     intervallRechnen();
@@ -367,11 +835,19 @@ var App = (function () {
     if (aktuellerBaum == null) return null;
     var b = S.baeume[aktuellerBaum];
     if (!b) return null;
-    ['nr','stammzahl','alter','hoehe','kroneD','kronenansatz','stammumfang','messhoehe',
-     'strasse','hausNr','flurstueck','umfeld','gpsLat','gpsLon','phase','zustand','erwartung',
+    ['nr','artDt','stammzahl','alter','hoehe','kroneD','kronenansatz','stammumfang','messhoehe',
+     'lage','hausNr','flurstueck','umfeld','gpsLat','gpsLon','phase','zustand','erwartung',
      'roloff','intervall','befundtext','grenzen','bemerkung'].forEach(function (k) {
       b[k] = feldWert('b_' + k);
     });
+    delete b.strasse;
+
+    /* Der botanische Name wird immer aus dem deutschen abgeleitet, nie getippt.
+       So kann im Protokoll keine Kombination stehen, die es nicht gibt. */
+    b.artDt = String(b.artDt || '').trim();     /* die Tastatur hängt gern ein Leerzeichen an */
+    var art = DATA.artGenau(b.artDt);
+    b.artBot = art ? art.bot : '';
+    artMerken(b.artDt);
     b.intervallMatrix = feldWert('b_intervallMatrix');
     b.intervall = feldWert('b_intervall');
     b.naechsteKontrolle = el('b_naechsteKontrolle').dataset.iso || '';
@@ -404,39 +880,155 @@ var App = (function () {
     else { aktuellerBaum = null; zeige('liste'); }
   }
 
+  /**
+   * Der Service Worker hat eine neuere Fassung in den Cache gelegt.
+   * Neu geladen wird nur auf Zuruf und nur, wenn gerade kein Baum offen ist –
+   * ein Neustart mitten in der Erfassung würde die ungespeicherten Felder
+   * des laufenden Baums kosten.
+   */
+  function neueFassung() {
+    if (aktuellerBaum != null) {
+      melde('Neue Fassung geladen. Sie wird beim nächsten Start aktiv.', null, null, 7000);
+    } else {
+      melde('Neue Fassung geladen.', 'Jetzt neu starten', function () {
+        location.reload();
+      }, 12000);
+    }
+  }
+
   /* =========================================================================
    * Baumart
+   *
+   * Getippt wird direkt im Feld, die Treffer stehen unmittelbar darunter.
+   * Bewusst kein Überblenden: auf dem Telefon liegt die Tastatur sonst genau
+   * auf der Liste, und man tippt blind. Die Liste schiebt den Rest der Karte
+   * nach unten, statt ihn zu verdecken.
+   *
+   * Der botanische Name wird nicht getippt, sondern aus dem deutschen Namen
+   * abgeleitet (DATA.artGenau). Was sich nicht zuordnen lässt, bleibt Freitext
+   * und wird als solcher gekennzeichnet – im Protokoll steht dann nur der
+   * deutsche Name, aber nie ein falscher botanischer.
    * ====================================================================== */
-  function artWahl() {
-    var html = '<input id="artSuche" placeholder="Art suchen" style="margin-bottom:10px" ' +
-               'oninput="App.artFiltern(this.value)"><div id="artTreffer"></div>';
-    blendeAuf('Baumart', html);
-    artFiltern('');
-    setTimeout(function () { var s = el('artSuche'); if (s) s.focus(); }, 120);
+
+  /** Zeile unter dem Feld: botanischer Name oder Freitext-Hinweis. */
+  function artStand() {
+    var text = feldWert('b_artDt'), zeile = el('b_artBot'), g = DATA.artGenau(text);
+    if (!text) { zeile.textContent = ''; zeile.className = 'artbot'; return null; }
+    if (g) { zeile.textContent = g.bot; zeile.className = 'artbot'; }
+    else { zeile.textContent = 'Freitext – keine botanische Zuordnung'; zeile.className = 'artbot frei'; }
+    return g;
   }
 
-  function artFiltern(text) {
-    var t = String(text || '').toLowerCase(),
-        treffer = DATA.ARTEN.filter(function (a) {
-          return !t || a[0].toLowerCase().indexOf(t) >= 0 || a[1].toLowerCase().indexOf(t) >= 0;
-        }).slice(0, 60);
-    el('artTreffer').innerHTML = treffer.map(function (a) {
-      return '<button class="wahl" onclick="App.artSetzen(' + esc(JSON.stringify(a[0])) +
-             ',' + esc(JSON.stringify(a[1])) + ')"><b>' + esc(a[0]) + '</b>' +
-             '<span>' + esc(a[1]) + '</span></button>';
-    }).join('') + (t ? '<button class="wahl" onclick="App.artSetzen(' +
-      esc(JSON.stringify(text)) + ',\'\')"><b>' + esc(text) + '</b>' +
-      '<span>als Freitext übernehmen</span></button>' : '');
+  function artOeffnen() {
+    artListe(feldWert('b_artDt'));
+    /* Erst nach der Tastaturanimation: Feld unter die Kopfzeile ziehen,
+       damit Eingabe und Treffer zusammen im sichtbaren Rest stehen. */
+    setTimeout(artInsBild, 280);
   }
 
-  function artSetzen(dt, bot) {
-    el('b_artDt').textContent = dt;
-    el('b_artBot').textContent = bot || '';
-    if (aktuellerBaum != null) {
-      S.baeume[aktuellerBaum].artDt = dt;
-      S.baeume[aktuellerBaum].artBot = bot || '';
+  function artTippen() {
+    artStand();
+    artListe(feldWert('b_artDt'));
+  }
+
+  function artListe(text) {
+    var box = el('artVorschlaege'), treffer = DATA.artFinden(text, 40);
+    if (!treffer.length) {
+      box.innerHTML = '<div class="nix">Keine Art gefunden. „' + esc(text) +
+                      '" wird als Freitext übernommen.</div>';
+    } else {
+      box.innerHTML = (text ? '' : zuletztBlock() + '<div class="kopf">Alle Arten A–Z</div>') +
+        treffer.map(function (a) {
+          return '<button type="button" onclick="App.artSetzen(' + a.i + ')"><b>' +
+                 esc(a.dt) + '</b><span>' + esc(a.bot) + '</span></button>';
+        }).join('');
     }
-    blendeZu();
+    box.hidden = false;
+    artHoehe();
+  }
+
+  /**
+   * Die zuletzt aufgenommenen Arten, ganz oben in der Vorschlagsliste.
+   * In einem Garten wiederholen sich die Arten, das spart bei jedem zweiten
+   * Baum die Tipperei. Früher stand das als Knopfreihe dauerhaft über dem
+   * Feld und hat nur Platz gekostet; jetzt erscheint es mit der Liste.
+   */
+  function zuletztBlock() {
+    var gesehen = {}, liste = [];
+    function rein(dt) {
+      var k = DATA.artNorm(dt);
+      if (!k || gesehen[k] || liste.length >= 6) return;
+      gesehen[k] = 1;
+      liste.push(dt);
+    }
+    for (var i = S.baeume.length - 1; i >= 0; i--) rein(S.baeume[i].artDt);
+    (S.artenZuletzt || []).forEach(rein);
+    if (!liste.length) return '';
+    return '<div class="kopf">Zuletzt aufgenommen</div>' + liste.map(function (dt) {
+      var g = DATA.artGenau(dt);
+      return '<button type="button" onclick="App.artChip(' + esc(JSON.stringify(dt)) +
+             ')"><b>' + esc(dt) + '</b><span>' + esc(g ? g.bot : 'Freitext') + '</span></button>';
+    }).join('');
+  }
+
+  function artInsBild() {
+    var f = el('b_artDt');
+    if (!f || el('artVorschlaege').hidden) return;
+    var feld = f.parentNode,
+        kopf = document.querySelector('header'),
+        hoch = kopf ? kopf.getBoundingClientRect().height : 0,
+        weg = feld.getBoundingClientRect().top - hoch - 6;
+    if (Math.abs(weg) > 6) window.scrollBy(0, weg);
+    artHoehe();
+  }
+
+  /**
+   * Die Liste darf nur den Platz nehmen, der über der Tastatur wirklich frei
+   * ist. vh rechnet auf dem Telefon mit dem ganzen Fenster und damit falsch;
+   * visualViewport kennt die tatsächlich sichtbare Höhe.
+   */
+  function artHoehe() {
+    var box = el('artVorschlaege');
+    if (!box || box.hidden) return;
+    var sicht = window.visualViewport ? window.visualViewport.height : window.innerHeight,
+        oben = box.getBoundingClientRect().top;
+    box.style.maxHeight = Math.max(132, sicht - oben - 10) + 'px';
+  }
+
+  function artZu() { el('artVorschlaege').hidden = true; }
+
+  function artSetzen(i) {
+    var a = DATA.ARTEN[i];
+    if (!a) return;
+    artUebernehmen(a[0]);
+  }
+
+  function artChip(dt) { artUebernehmen(dt); }
+
+  function artUebernehmen(dt) {
+    setzeFeld('b_artDt', dt);
+    artStand();
+    artZu();
+    var f = el('b_artDt');
+    if (f) f.blur();          /* Tastatur zu, damit die ganze Karte wieder sichtbar ist */
+  }
+
+  /** Beim Verlassen des Feldes die Schreibweise auf den Katalog ziehen. */
+  function artFertig() {
+    setTimeout(function () {
+      var g = DATA.artGenau(feldWert('b_artDt'));
+      if (g) setzeFeld('b_artDt', g.dt);   /* auch botanisch getippt → deutscher Name */
+      artStand();
+      artZu();
+    }, 150);
+  }
+
+  function artMerken(dt) {
+    if (!dt) return;
+    var k = DATA.artNorm(dt);
+    S.artenZuletzt = (S.artenZuletzt || []).filter(function (x) { return DATA.artNorm(x) !== k; });
+    S.artenZuletzt.unshift(dt);
+    S.artenZuletzt = S.artenZuletzt.slice(0, 12);
   }
 
   /* =========================================================================
@@ -451,11 +1043,11 @@ var App = (function () {
         sel = el('b_intervall');
     if (!b || !b.intervallManuell) sel.value = vorschlag;
 
-    var jahre = DATA.intervallJahre(sel.value),
+    var monate = DATA.intervallMonate(sel.value),
         basis = S.auftrag.datum || heuteISO(),
         feld = el('b_naechsteKontrolle');
-    if (jahre) {
-      var iso = plusJahre(basis, jahre);
+    if (monate) {
+      var iso = plusMonate(basis, monate);
       feld.value = monatJahr(iso);
       feld.dataset.iso = iso;
     } else {
@@ -472,24 +1064,36 @@ var App = (function () {
   /* =========================================================================
    * Symptome
    * ====================================================================== */
+  var symGruppe = 'K';
+
+  /** Die fünf Baumteile liegen hinter Reitern – ein Tipp statt 60 Zeilen Scrollen.
+   *  Die Zahl auf dem Reiter zeigt, wo schon Kreuze sitzen. */
   function zeichneSymptome(b) {
-    var box = el('symptome'), html = '';
-    Object.keys(DATA.SYMPTOME).forEach(function (g) {
-      var gruppe = DATA.SYMPTOME[g],
-          an = (b.befunde && b.befunde[g]) || [];
-      html += '<div class="symgruppe"><h3>' + esc(gruppe.titel) +
-              '<span class="anzahl" id="anz' + g + '" style="' +
-              (an.length ? '' : 'display:none') + '">' + an.length + '</span></h3>' +
-              '<div class="symliste">' +
-        gruppe.codes.map(function (bez, i) {
-          var code = g + (i + 1), gesetzt = an.indexOf(code) >= 0;
-          return '<label class="' + (gesetzt ? 'an' : '') + '" id="lab' + code + '">' +
-            '<input type="checkbox" ' + (gesetzt ? 'checked' : '') +
-            ' onchange="App.symptomWechsel(\'' + g + '\',\'' + code + '\',this.checked)">' +
-            esc(bez) + '</label>';
-        }).join('') + '</div></div>';
-    });
-    box.innerHTML = html;
+    var box = el('symptome'),
+        befunde = b.befunde || {},
+        reiter = Object.keys(DATA.SYMPTOME).map(function (g) {
+          var an = (befunde[g] || []).length;
+          return '<button class="' + (g === symGruppe ? 'aktiv' : '') +
+            '" onclick="App.symGruppe(\'' + g + '\')">' + esc(DATA.SYMPTOME[g].kurz || g) +
+            (an ? '<span class="anzahl">' + an + '</span>' : '') + '</button>';
+        }).join(''),
+        gruppe = DATA.SYMPTOME[symGruppe],
+        an = befunde[symGruppe] || [];
+
+    box.innerHTML = '<div class="symreiter">' + reiter + '</div>' +
+      '<div class="symgruppe"><div class="symliste">' +
+      gruppe.codes.map(function (bez, i) {
+        var code = symGruppe + (i + 1), gesetzt = an.indexOf(code) >= 0;
+        return '<label class="' + (gesetzt ? 'an' : '') + '" id="lab' + code + '">' +
+          '<input type="checkbox" ' + (gesetzt ? 'checked' : '') +
+          ' onchange="App.symptomWechsel(\'' + symGruppe + '\',\'' + code + '\',this.checked)">' +
+          esc(bez) + '</label>';
+      }).join('') + '</div></div>';
+  }
+
+  function symGruppeWechsel(g) {
+    symGruppe = g;
+    zeichneSymptome(S.baeume[aktuellerBaum] || {});
   }
 
   function symptomWechsel(gruppe, code, an) {
@@ -503,9 +1107,7 @@ var App = (function () {
 
     var lab = el('lab' + code);
     if (lab) lab.className = an ? 'an' : '';
-    var anz = el('anz' + gruppe);
-    if (anz) { anz.textContent = liste.length; anz.style.display = liste.length ? '' : 'none'; }
-
+    zeichneSymptome(b);      /* aktualisiert die Zahlen auf den Reitern */
     zeichnePilz(b);
   }
 
@@ -632,6 +1234,277 @@ var App = (function () {
     sichern();
   }
 
+
+  /* =========================================================================
+   * Kronensicherung
+   *
+   * Der Kontrolleur steht unterm Baum, sieht eine Farbe und weiß nicht, von
+   * wann sie ist. Der Zyklus ist acht Jahre lang – genauso lang wie die
+   * ZTV-Mindesteinsatzdauer. Gelb heißt deshalb entweder „dieses Jahr
+   * eingebaut" oder „vor acht Jahren eingebaut und fällig". Die App zeigt
+   * darum immer alle plausiblen Jahre mit Ampel, statt eines zu raten.
+   * ====================================================================== */
+
+  function jetztJahr() { return new Date().getFullYear(); }
+
+  function ksEinsatzdauer(hersteller) {
+    var h = DATA.KS_HERSTELLER.filter(function (x) { return x.name === hersteller; })[0];
+    return h ? h.dauer : 8;
+  }
+
+  /** Ampel aus Einbaujahr und Einsatzdauer. */
+  function ksAmpel(einbaujahr, dauer) {
+    if (!einbaujahr) return { klasse: 'a-grau', text: 'Einbaujahr unbekannt', rest: null };
+    var austausch = parseInt(einbaujahr, 10) + (parseInt(dauer, 10) || 8),
+        rest = austausch - jetztJahr();
+    if (rest < 0)  return { klasse: 'a-rot',    text: 'überschritten seit ' + austausch, rest: rest };
+    if (rest === 0) return { klasse: 'a-orange', text: 'Austausch fällig ' + austausch, rest: rest };
+    if (rest <= 2) return { klasse: 'a-gelb',   text: 'noch ' + rest + (rest === 1 ? ' Jahr' : ' Jahre'), rest: rest };
+    return { klasse: 'a-gruen', text: 'noch ' + rest + ' Jahre', rest: rest };
+  }
+
+  function ksFarbHex(name) {
+    var f = DATA.KS_FARBEN.filter(function (x) { return x.name === name; })[0];
+    return f ? f.hex : '#bbb';
+  }
+
+  /* --- Liste am Baum --- */
+  function zeichneKS(b) {
+    var liste = b.ks || [], box = el('ksListe');
+    if (!liste.length) {
+      box.innerHTML = '<div class="hinweis" style="margin-bottom:10px">' +
+        'Keine Kronensicherung erfasst.</div>';
+      return;
+    }
+    box.innerHTML = liste.map(function (k, i) {
+      var dauer = k.einsatzdauer || ksEinsatzdauer(k.hersteller),
+          a = ksAmpel(k.einbaujahr, dauer),
+          maengel = (k.maengel || []).length;
+      return '<div class="kszeile">' +
+        '<div class="kopf"><span class="farbpunkt" style="background:' + ksFarbHex(k.farbe) + '"></span>' +
+        '<b>' + esc(k.bezeichnung || k.system || 'Kronensicherung') + '</b>' +
+        '<span class="ampel ' + a.klasse + '">' + esc(a.text) + '</span>' +
+        '<button class="weg" onclick="App.ksWeg(' + i + ')">&times;</button></div>' +
+        '<div class="zeile2">' +
+        [k.einbaujahr ? 'Einbau ' + k.einbaujahr : 'Einbaujahr unbekannt',
+         k.farbe ? 'Farbe ' + k.farbe : '',
+         k.hersteller, k.bauart,
+         k.bruchlast ? k.bruchlast + ' t' : '',
+         k.anzahl ? k.anzahl + '×' : ''].filter(Boolean).map(esc).join(' · ') +
+        (maengel ? '<br><span style="color:#b03030;font-weight:600">' + maengel +
+          (maengel === 1 ? ' Mangel' : ' Mängel') + '</span>' : '') +
+        (k.bewertung ? ' · ' + esc(k.bewertung) : '') +
+        '</div>' +
+        '<div style="margin-top:8px"><button class="btn klein zweit" style="margin:0" ' +
+        'onclick="App.ksBearbeiten(' + i + ')">Bearbeiten</button></div></div>';
+    }).join('');
+  }
+
+  /* --- Neue Kronensicherung: erst die Farbe --- */
+  function ksNeu() {
+    ksIndex = null;
+    farbWahl(function (farbe, jahr) {
+      var b = S.baeume[aktuellerBaum];
+      if (!b.ks) b.ks = [];
+      b.ks.push({
+        farbe: farbe, einbaujahr: jahr, bezeichnung: '', system: DATA.KS_SYSTEM[0],
+        bauart: '', verbund: '', hersteller: 'unbekannt', bruchlast: '', anzahl: 1,
+        einsatzdauer: '', einbauhoehe: '', astbasis: '', maengel: [],
+        bewertung: 'funktionsfähig', bemerkung: ''
+      });
+      /* Befund K9 „vorhandene Kronensicherung" gehört dann zwingend gesetzt. */
+      if (!b.befunde) b.befunde = { K: [], S: [], W: [], Wu: [], V: [] };
+      if (b.befunde.K.indexOf('K9') < 0) b.befunde.K.push('K9');
+      zeichneSymptome(b);
+      sichern();
+      ksBearbeiten(b.ks.length - 1);
+    });
+  }
+
+  var ksIndex = null;
+
+  /** Farbauswahl mit anschließender Jahreswahl. */
+  function farbWahl(fertig) {
+    var html = '<div class="hinweis" style="margin-bottom:12px">Welche Farbe hat die Kennung ' +
+      'am Seil, der Endkappe oder dem Kennring?</div><div class="farbgitter">' +
+      DATA.KS_FARBEN.map(function (f) {
+        return '<div class="farbkachel" style="background:' + f.hex +
+          (f.name === 'gelb' ? ';color:#3a2f00' : '') +
+          '" onclick="App.farbJahre(' + esc(JSON.stringify(f.name)) + ')">' + esc(f.name) + '</div>';
+      }).join('') + '</div>' +
+      '<button class="btn zweit" onclick="App.farbJahre(\'\')">Farbe unbekannt</button>';
+    ksFertig = fertig;
+    blendeAuf('Jahresfarbe', html);
+  }
+
+  var ksFertig = null;
+
+  /** Die vier plausiblen Einbaujahre mit Alter, Restlaufzeit und Ampel. */
+  function farbJahre(farbe) {
+    if (!farbe) { blendeZu(); if (ksFertig) ksFertig('', ''); return; }
+    var jahre = DATA.ksJahre(farbe, jetztJahr()),
+        html = '<div class="hinweis" style="margin-bottom:12px">' +
+          'Der Farbzyklus wiederholt sich alle acht Jahre – genauso lang wie die ' +
+          'Mindesteinsatzdauer nach ZTV. Deshalb sind mehrere Jahre möglich. ' +
+          '<b>Aufgedruckte Jahreszahl gegenlesen, wenn vorhanden.</b></div>';
+
+    html += jahre.map(function (j) {
+      var alter = jetztJahr() - j,
+          a = ksAmpel(j, 8);
+      return '<button class="jahrzeile" onclick="App.farbJahrSetzen(' +
+        esc(JSON.stringify(farbe)) + ',' + j + ')">' +
+        '<span class="farbpunkt" style="background:' + ksFarbHex(farbe) + '"></span>' +
+        '<b>' + j + '</b><span class="info">' +
+        (alter === 0 ? 'dieses Jahr eingebaut' : 'vor ' + alter + (alter === 1 ? ' Jahr' : ' Jahren') + ' eingebaut') +
+        '<br>bei 8 Jahren Einsatzdauer: ' + a.text + '</span>' +
+        '<span class="ampel ' + a.klasse + '">' + (a.rest > 2 ? 'ok' : (a.rest >= 0 ? 'bald' : 'fällig')) +
+        '</span></button>';
+    }).join('');
+
+    html += '<div class="feld" style="margin-top:12px"><label>Oder Jahr direkt eintragen</label>' +
+      '<input type="number" id="ksJahrFrei" placeholder="' + jetztJahr() + '" inputmode="numeric"></div>' +
+      '<button class="btn" onclick="App.farbJahrSetzen(' + esc(JSON.stringify(farbe)) +
+      ', document.getElementById(\'ksJahrFrei\').value)">Übernehmen</button>';
+
+    blendeAuf('Farbe ' + farbe + ' – mögliche Einbaujahre', html);
+  }
+
+  function farbJahrSetzen(farbe, jahr) {
+    blendeZu();
+    if (ksFertig) { var f = ksFertig; ksFertig = null; f(farbe, jahr ? String(jahr) : ''); }
+  }
+
+  /** Nachschlagewerk ohne Baumbezug. */
+  function farbNachschlag() {
+    farbWahl(function () { /* nur nachsehen, nichts übernehmen */ });
+  }
+
+  /* --- Erfassungsmaske --- */
+  function ksBearbeiten(i) {
+    ksIndex = i;
+    var b = S.baeume[aktuellerBaum], k = b.ks[i];
+    if (!k) return;
+    var dauer = k.einsatzdauer || ksEinsatzdauer(k.hersteller),
+        a = ksAmpel(k.einbaujahr, dauer),
+        bem = k.astbasis ? DATA.ksBemessung(parseFloat(k.astbasis),
+              /statisch/i.test(k.system || '')) : null;
+
+    var html =
+      '<div class="kszeile" style="margin-bottom:12px"><div class="kopf">' +
+      '<span class="farbpunkt" style="background:' + ksFarbHex(k.farbe) + '"></span>' +
+      '<b>' + (k.farbe ? 'Farbe ' + esc(k.farbe) : 'Farbe unbekannt') +
+      (k.einbaujahr ? ', Einbau ' + esc(k.einbaujahr) : '') + '</b>' +
+      '<span class="ampel ' + a.klasse + '">' + esc(a.text) + '</span></div>' +
+      '<button class="btn klein zweit" style="margin:8px 0 0" onclick="App.ksFarbeAendern()">' +
+      'Farbe oder Jahr ändern</button></div>' +
+
+      '<div class="feld"><label>Bezeichnung</label><input id="ks_bezeichnung" value="' +
+        esc(k.bezeichnung || '') + '" placeholder="z. B. Süd-Zwiesel"></div>' +
+      '<div class="feld"><label>Systemtyp</label><select id="ks_system">' +
+        opt(DATA.KS_SYSTEM, k.system) + '</select></div>' +
+      '<div class="zeile"><div class="feld"><label>Bauart nach ZTV</label><select id="ks_bauart">' +
+        opt(DATA.KS_BAUART, k.bauart, true) + '</select></div>' +
+      '<div class="feld"><label>Verbundform</label><select id="ks_verbund">' +
+        opt(DATA.KS_VERBUND, k.verbund, true) + '</select></div></div>' +
+      '<div class="zeile"><div class="feld"><label>Hersteller</label><select id="ks_hersteller" ' +
+        'onchange="App.ksHersteller()">' +
+        opt(DATA.KS_HERSTELLER.map(function (h) { return h.name; }), k.hersteller) + '</select></div>' +
+      '<div class="feld"><label>Einsatzdauer (Jahre)</label><input type="number" id="ks_einsatzdauer" ' +
+        'value="' + esc(dauer) + '"></div></div>' +
+      '<div class="zeile drei"><div class="feld"><label>Bruchlast (t)</label>' +
+        '<input type="number" id="ks_bruchlast" step="0.1" value="' + esc(k.bruchlast || '') + '"></div>' +
+      '<div class="feld"><label>Anzahl</label><input type="number" id="ks_anzahl" min="1" value="' +
+        esc(k.anzahl || 1) + '"></div>' +
+      '<div class="feld"><label>Einbauhöhe (m)</label><input type="number" id="ks_einbauhoehe" value="' +
+        esc(k.einbauhoehe || '') + '"></div></div>' +
+      '<div class="feld"><label>Ø an der Astbasis (cm)</label><input type="number" id="ks_astbasis" ' +
+        'value="' + esc(k.astbasis || '') + '" oninput="App.ksBemessung(this.value)"></div>' +
+      '<div class="hinweis" id="ksBemessung" style="margin:-6px 0 12px">' +
+        (bem ? bemessungText(bem, k.bruchlast) : 'Aus dem Durchmesser leitet die App den ' +
+         'Bemessungsvorschlag nach ZTV ab.') + '</div>' +
+
+      '<div class="feld"><label>Mängel</label><div class="symliste" style="border:1px solid var(--rand);' +
+        'border-radius:9px;padding:2px 0">' +
+        DATA.KS_MAENGEL.map(function (m, mi) {
+          var an = (k.maengel || []).indexOf(m) >= 0;
+          return '<label class="' + (an ? 'an' : '') + '"><input type="checkbox" value="' + esc(m) + '"' +
+            (an ? ' checked' : '') + ' onchange="App.ksMangel(this)">' + esc(m) + '</label>';
+        }).join('') + '</div></div>' +
+
+      '<div class="feld"><label>Bewertung</label><select id="ks_bewertung">' +
+        opt(DATA.KS_BEWERTUNG, k.bewertung) + '</select></div>' +
+      '<div class="feld"><label>Bemerkung</label><textarea id="ks_bemerkung">' +
+        esc(k.bemerkung || '') + '</textarea></div>' +
+      '<button class="btn" onclick="App.ksSpeichern()">Übernehmen</button>';
+
+    blendeAuf('Kronensicherung', html);
+  }
+
+  function opt(werte, gewaehlt, leer) {
+    return (leer ? '<option value="">– keine Angabe –</option>' : '') +
+      werte.map(function (w) {
+        return '<option value="' + esc(w) + '"' + (w === gewaehlt ? ' selected' : '') + '>' +
+          esc(w) + '</option>';
+      }).join('');
+  }
+
+  function bemessungText(vorschlag, eingebaut) {
+    var t = 'Bemessungsvorschlag nach ZTV: <b>' + vorschlag + ' t</b>';
+    var e = parseFloat(eingebaut);
+    if (e && e < vorschlag) t += ' – die eingetragene Bruchlast von ' + e + ' t liegt darunter.';
+    return t;
+  }
+
+  function ksBemessungAnzeige(wert) {
+    var d = parseFloat(wert), f = el('ksBemessung');
+    if (!f) return;
+    if (!d) { f.textContent = 'Aus dem Durchmesser leitet die App den Bemessungsvorschlag nach ZTV ab.'; return; }
+    var statisch = /statisch/i.test(feldWert('ks_system') || '');
+    f.innerHTML = bemessungText(DATA.ksBemessung(d, statisch), feldWert('ks_bruchlast'));
+  }
+
+  function ksHersteller() {
+    var dauer = ksEinsatzdauer(feldWert('ks_hersteller'));
+    setzeFeld('ks_einsatzdauer', dauer);
+  }
+
+  function ksMangel(box) {
+    box.parentNode.className = box.checked ? 'an' : '';
+  }
+
+  function ksFarbeAendern() {
+    var i = ksIndex;
+    farbWahl(function (farbe, jahr) {
+      var k = S.baeume[aktuellerBaum].ks[i];
+      k.farbe = farbe; k.einbaujahr = jahr;
+      sichern();
+      ksBearbeiten(i);
+    });
+  }
+
+  function ksSpeichern() {
+    var b = S.baeume[aktuellerBaum], k = b.ks[ksIndex];
+    if (!k) { blendeZu(); return; }
+    ['bezeichnung','system','bauart','verbund','hersteller','einsatzdauer','bruchlast',
+     'anzahl','einbauhoehe','astbasis','bewertung','bemerkung'].forEach(function (f) {
+      k[f] = feldWert('ks_' + f);
+    });
+    k.maengel = [];
+    Array.prototype.forEach.call(
+      document.querySelectorAll('.blende .symliste input:checked'),
+      function (i) { k.maengel.push(i.value); });
+    blendeZu();
+    zeichneKS(b);
+    sichern();
+  }
+
+  function ksWeg(i) {
+    var b = S.baeume[aktuellerBaum];
+    b.ks.splice(i, 1);
+    zeichneKS(b);
+    sichern();
+  }
+
   /* =========================================================================
    * Fotos
    * ====================================================================== */
@@ -688,12 +1561,48 @@ var App = (function () {
   /* =========================================================================
    * GPS
    * ====================================================================== */
+  /** Objektstandort – hilft beim Wiederfinden der Anlage, nicht des Baumes. */
+  function gpsObjekt() {
+    if (!navigator.geolocation) { melde('Dieses Gerät liefert keine Position.'); return; }
+    melde('Position wird ermittelt …');
+    navigator.geolocation.getCurrentPosition(function (p) {
+      S.auftrag.gpsLat = p.coords.latitude.toFixed(5);
+      S.auftrag.gpsLon = p.coords.longitude.toFixed(5);
+      objektGpsAnzeige();
+      sichern();
+      melde('Objektstandort übernommen (± ' + Math.round(p.coords.accuracy) + ' m).');
+    }, function () {
+      melde('Position nicht verfügbar. Standortfreigabe prüfen.');
+    }, { enableHighAccuracy: true, timeout: 12000, maximumAge: 30000 });
+  }
+
+  function objektGpsAnzeige() {
+    var f = el('objektGps'), a = S.auftrag;
+    if (!f) return;
+    f.innerHTML = (a.gpsLat && a.gpsLon)
+      ? 'Erfasst: ' + esc(a.gpsLat) + ' N · ' + esc(a.gpsLon) + ' E' +
+        ' <button class="btn klein zweit" style="margin-left:6px;padding:4px 9px;min-height:30px" ' +
+        'onclick="App.gpsObjektWeg()">entfernen</button>'
+      : 'Noch kein Objektstandort erfasst.';
+  }
+
+  function gpsObjektWeg() {
+    S.auftrag.gpsLat = ''; S.auftrag.gpsLon = '';
+    objektGpsAnzeige(); sichern();
+  }
+
+  function gpsAnzeige() {
+    var lat = feldWert('b_gpsLat'), lon = feldWert('b_gpsLon'), f = el('gpsAnzeige');
+    if (f) f.textContent = (lat && lon) ? ('Erfasst: ' + lat + ' N · ' + lon + ' E') : '';
+  }
+
   function gps() {
     if (!navigator.geolocation) { melde('Dieses Gerät liefert keine Position.'); return; }
     melde('Position wird ermittelt …');
     navigator.geolocation.getCurrentPosition(function (p) {
       setzeFeld('b_gpsLat', p.coords.latitude.toFixed(5));
       setzeFeld('b_gpsLon', p.coords.longitude.toFixed(5));
+      gpsAnzeige();
       melde('Position übernommen (± ' + Math.round(p.coords.accuracy) + ' m).');
     }, function () {
       melde('Position nicht verfügbar. Standortfreigabe prüfen.');
@@ -725,7 +1634,14 @@ var App = (function () {
     history.pushState({ blende: true }, '', '');
   }
 
-  function blendeZu() { el('blende').classList.remove('an'); }
+  function blendeZu() {
+    el('blende').classList.remove('an');
+    /* Inhalt kurz danach leeren – sonst hängen alte Felder im DOM und
+       Selektoren greifen auf Reste einer geschlossenen Einblendung zu. */
+    setTimeout(function () {
+      if (!blendeOffen()) el('blendeInhalt').innerHTML = '';
+    }, 250);
+  }
   function blendeOffen() { return el('blende').classList.contains('an'); }
 
   /* =========================================================================
@@ -799,6 +1715,7 @@ var App = (function () {
     a.datum = deDatum(a.datum);
     a.datumBis = deDatum(a.datumBis);
     a.berichtsdatum = deDatum(a.berichtsdatum || heuteISO());
+    a.qualifikationVoll = qualifikationText(S.auftrag);
     var baeume = S.baeume.map(function (b) {
       var k = JSON.parse(JSON.stringify(b));
       k.naechsteKontrolle = b.naechsteKontrolleText ||
@@ -864,7 +1781,7 @@ var App = (function () {
       (b.massnahmen || []).forEach(function (m) {
         liste.push({
           nr: b.nr, art: b.artDt, hoehe: b.hoehe,
-          standort: [b.strasse, b.hausNr].filter(Boolean).join(' '),
+          standort: [b.lage || b.strasse, b.hausNr].filter(Boolean).join(' '),
           klasse: DATA.HOEHENKLASSEN[DATA.hoehenklasse(b.hoehe)],
           text: m.text, stufe: m.stufe,
           frist: m.frist ? 'bis ' + deDatum(m.frist) : '',
@@ -1096,6 +2013,8 @@ var App = (function () {
     sichern();
     blendeZu();
     auftragSchreiben();
+    richtungZeigen();
+    objektGpsAnzeige();
     zeige('liste');
     melde(alsFolge ? 'Folgekontrolle angelegt. Alle Bäume übernommen.' : 'Sicherung geladen.');
   }
@@ -1228,9 +2147,9 @@ var App = (function () {
    * Start
    * ====================================================================== */
   function start() {
-    laden();
-    papierkorbAufraeumen();
+    gemeinsamLaden();
 
+    fuelleSelect('a_qualifikation', DATA.QUALIFIKATIONEN.concat(['sonstige']));
     fuelleSelect('a_kontrollart', DATA.KONTROLLART);
     fuelleSelect('a_belaubung', DATA.BELAUBUNG);
     fuelleSelect('a_witterung', DATA.WITTERUNG);
@@ -1239,11 +2158,19 @@ var App = (function () {
     fuelleSelect('b_zustand', DATA.ZUSTAENDE);
     fuelleSelect('b_erwartung', DATA.ERWARTUNG);
     fuelleSelect('b_roloff', DATA.ROLOFF);
-    fuelleSelect('b_intervall', ['jährlich', '2 Jahre', '3 Jahre', 'keine gesonderte RK']);
+    fuelleSelect('b_intervall', ['halbjährlich', 'jährlich', '2 Jahre', '3 Jahre',
+                                 'keine gesonderte RK']);
 
-    auftragSchreiben();
-    zeichneAuftragKurz();
-    zeichneListe();
+    /* Die Aufträge liegen in IndexedDB, das Lesen läuft asynchron.
+       Erst danach steht fest, was gezeichnet wird. */
+    auftragStarten();
+
+    /* Tastatur auf oder zu: die Vorschlagsliste neu einpassen. */
+    if (window.visualViewport) {
+      window.visualViewport.addEventListener('resize', function () {
+        if (!el('artVorschlaege').hidden) { artHoehe(); artInsBild(); }
+      });
+    }
 
     ['b_phase','b_zustand','b_erwartung'].forEach(function (id) {
       el(id).addEventListener('change', function () {
@@ -1262,9 +2189,11 @@ var App = (function () {
       S.auftrag.datum = this.value;
     });
     ['a_auftraggeber','a_objekt','a_auftragsNr','a_kontrollart','a_datum','a_datumBis',
-     'a_belaubung','a_witterung','a_kontrolleur','a_qualifikation','a_zertNr'].forEach(function (id) {
+     'a_belaubung','a_witterung','a_kontrolleur','a_qualifikation',
+     'a_qualifikationFrei'].forEach(function (id) {
       el(id).addEventListener('change', function () { auftragLesen(); sichern(); });
     });
+    el('a_qualifikation').addEventListener('change', qualFreitext);
     el('b_nr').addEventListener('input', function () {
       document.getElementById('titel').textContent = 'Baum ' + this.value;
     });
@@ -1310,16 +2239,27 @@ var App = (function () {
     start: start, zeige: zeige, zurueck: zurueck,
     neuerBaum: neuerBaum, baumOeffnen: baumOeffnen, baumSpeichern: baumSpeichern,
     loeschFrage: loeschFrage, baumLoeschen: baumLoeschen, zeichneListe: zeichneListe,
-    artWahl: artWahl, artFiltern: artFiltern, artSetzen: artSetzen,
-    symptomWechsel: symptomWechsel, grenzeAnfuegen: grenzeAnfuegen,
+    artOeffnen: artOeffnen, artTippen: artTippen, artSetzen: artSetzen,
+    artChip: artChip, artFertig: artFertig, neueFassung: neueFassung,
+    symptomWechsel: symptomWechsel, symGruppe: symGruppeWechsel,
+    grenzeAnfuegen: grenzeAnfuegen,
     massnahmeNeu: massnahmeNeu, massnahmeStufe: massnahmeStufe, massnahmeAnlegen: massnahmeAnlegen,
     massnahmeFeld: massnahmeFeld, massnahmeWeg: massnahmeWeg,
-    fotoWeg: fotoWeg, gps: gps,
+    fotoWeg: fotoWeg, gps: gps, gpsObjekt: gpsObjekt, gpsObjektWeg: gpsObjektWeg,
+    mehr: mehr, richtung: richtung,
+    ksNeu: ksNeu, ksBearbeiten: ksBearbeiten, ksSpeichern: ksSpeichern, ksWeg: ksWeg,
+    ksHersteller: ksHersteller, ksMangel: ksMangel, ksFarbeAendern: ksFarbeAendern,
+    ksBemessung: ksBemessungAnzeige, farbNachschlag: farbNachschlag,
+    farbJahre: farbJahre, farbJahrSetzen: farbJahrSetzen,
     blendeAuf: blendeAuf, blendeZu: blendeZu,
     pdf: pdf, excel: excel, excelKalkulation: excelKalkulation,
     angebot: angebot, auftragswert: auftragswert, posten: posten,
     sevKopieren: sevKopieren, sevCsv: sevCsv, sevProdukte: sevProdukte,
     sevPositionen: sevPositionen, sevText: sevText, zeichneAusgabe: zeichneAusgabe,
+    zeichneKunden: zeichneKunden, kundeNeu: kundeNeu, kundeSpeichern: kundeSpeichern,
+    kundeOeffnen: kundeOeffnen,
+    auftragWechsel: auftragWechsel, auftragOeffnen: auftragOeffnen, auftragNeu: auftragNeu,
+    auftragWegFrage: auftragWegFrage, auftragWeg: auftragWeg,
     sicherungExport: sicherungExport, importAusfuehren: importAusfuehren,
     einstellungenSpeichern: einstellungenSpeichern,
     papierkorbZurueck: papierkorbZurueck, papierkorbLeeren: papierkorbLeeren,

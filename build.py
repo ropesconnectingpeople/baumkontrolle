@@ -22,7 +22,7 @@ BIBLIOTHEKEN = [
     ('xlsx.full.min.js', 'SheetJS'),
 ]
 
-QUELLEN = ['10_data.js', '20_app.js', '30_pdf.js', '40_xlsx.js']
+QUELLEN = ['05_db.js', '10_data.js', '20_app.js', '30_pdf.js', '40_xlsx.js']
 
 
 def lies(pfad):

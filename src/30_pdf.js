@@ -17,7 +17,7 @@
  * PDF.erzeugen({
  *   auftrag: {
  *     auftraggeber, objekt, auftragsNr, kontrollart, datum, datumBis,
- *     belaubung, witterung, kontrolleur, qualifikation, zertNr, berichtsdatum
+ *     belaubung, witterung, kontrolleur, qualifikation, qualifikationVoll, berichtsdatum
  *   },
  *   baeume: [{
  *     nr, stammzahl, artDt, artBot,
@@ -167,13 +167,27 @@ var PDF = (function () {
       var bw = sw * span;
       if (f.hl) rect(doc, x, zeileY, bw, zh, C.hell, null);
       t(doc, String(f.lab || '').toUpperCase(), x + 1.8, zeileY + 2.6, { size: 5.6, color: C.label });
-      t(doc, f.val == null ? '' : f.val, x + 1.8, zeileY + 6.1,
-        { size: 8.2, bold: true, color: f.hl ? C.gruen : C.text });
-      if (f.sub) {
-        var vb = doc.getTextWidth(String(f.val == null ? '' : f.val));
-        doc.setFont('helvetica', 'bold'); doc.setFontSize(8.2);
-        vb = doc.getTextWidth(String(f.val == null ? '' : f.val));
-        t(doc, f.sub, x + 1.8 + vb + 1.4, zeileY + 6.1, { size: 7, color: C.weich });
+
+      var wert = f.val == null ? '' : String(f.val),
+          platz = bw - 3.6,
+          farbe = f.hl ? C.gruen : C.text;
+      doc.setFont('helvetica', 'bold'); doc.setFontSize(8.2);
+
+      if (doc.getTextWidth(wert) > platz) {
+        /* Zu lang für eine Zeile: kleiner setzen und umbrechen, statt über den
+           Feldrand hinauszuschreiben. */
+        doc.setFontSize(6.6);
+        var zeilen = doc.splitTextToSize(wert + (f.sub ? ' ' + f.sub : ''), platz).slice(0, 2);
+        zeilen.forEach(function (z, i) {
+          t(doc, z, x + 1.8, zeileY + 4.9 + i * 2.6, { size: 6.6, bold: true, color: farbe });
+        });
+      } else {
+        t(doc, wert, x + 1.8, zeileY + 6.1, { size: 8.2, bold: true, color: farbe });
+        if (f.sub) {
+          doc.setFont('helvetica', 'bold'); doc.setFontSize(8.2);
+          var vb = doc.getTextWidth(wert);
+          t(doc, f.sub, x + 1.8 + vb + 1.4, zeileY + 6.1, { size: 7, color: C.weich });
+        }
       }
       line(doc, x + bw, zeileY, x + bw, zeileY + zh, C.fein);
       line(doc, x, zeileY + zh, x + bw, zeileY + zh, C.fein);
@@ -249,8 +263,9 @@ var PDF = (function () {
       { lab: 'Belaubungszustand', val: a.belaubung },
       { lab: 'Witterung',    val: a.witterung },
       { lab: 'Baumkontrolleur', val: a.kontrolleur, span: 2 },
-      { lab: 'Qualifikation', val: a.qualifikation,
-        sub: a.zertNr ? '· Zert.-Nr. ' + a.zertNr : '', span: 2 }
+      { lab: 'Qualifikation', val: a.qualifikationVoll || a.qualifikation, span: 2 },
+      { lab: 'Erfassungsrichtung', val: a.erfassungsrichtung || '–', span: 2 },
+      { lab: 'Objekt-Nr. / Auftrag', val: a.auftragsNr || '–', span: 2 }
     ], y);
     y += 2.4;
 
@@ -264,7 +279,7 @@ var PDF = (function () {
       { lab: 'Stammumfang', val: b.stammumfang != null ? b.stammumfang + ' cm' : '',
         sub: '· gemessen in ' + (b.messhoehe || '1,00 m') },
       { lab: 'Kronenansatz', val: b.kronenansatz != null ? b.kronenansatz + ' m' : '' },
-      { lab: 'Standort', val: [b.strasse, b.hausNr].filter(Boolean).join(' '), span: 2 },
+      { lab: 'Lagebeschreibung', val: [b.lage || b.strasse, b.hausNr].filter(Boolean).join(' '), span: 2 },
       { lab: 'Flurstück', val: b.flurstueck },
       { lab: 'Alter am Standort', val: b.alter },
       { lab: 'Baumumfeld', val: b.umfeld, span: 2 },
@@ -287,7 +302,28 @@ var PDF = (function () {
 
     /* Kontrollgänge – das Blatt als Baumkontrollbuch über vier Zyklen */
     y = blockTitel(doc, 'Kontrollgänge – Baumkontrollbuch', y, true);
-    var hist = b.historie && b.historie.length ? b.historie.slice(0, 4) : [];
+    /* Die erste Spalte ist die laufende Kontrolle, danach folgt die Historie.
+       So wird aus dem Blatt tatsächlich ein Baumkontrollbuch. */
+    var mn = MAP.massnahmen(b),
+        eu = mn.some(function (m) { return /eingehende untersuchung/i.test(m.text || ''); }),
+        faellung = mn.some(function (m) { return /fällung/i.test(m.text || ''); }),
+        pflege = mn.filter(function (m) {
+          return !/eingehende untersuchung|fällung|absperrung|verkehrslenkung/i.test(m.text || '');
+        }).map(function (m) { return m.text; }),
+        fristen = mn.map(function (m) { return m.frist; }).filter(Boolean);
+
+    var aktuell = {
+      datum: a.datum || '',
+      handlungsbedarf: mn.length ? 'ja' : 'nein',
+      eu: eu ? 'ja' : 'nein',
+      pflege: pflege.length ? pflege.join(', ') : '–',
+      faellung: faellung ? 'ja' : 'nein',
+      intervall: b.intervall || '',
+      frist: fristen.length ? fristen[0] : '–',
+      kuerzel: a.kontrolleur || ''
+    };
+
+    var hist = [aktuell].concat(b.historie || []).slice(0, 4);
     while (hist.length < 4) hist.push(null);
     var zeilenDef = [
       ['Datum',                 'datum'],
@@ -313,6 +349,42 @@ var PDF = (function () {
     });
     y = doc.lastAutoTable.finalY + 2.4;
 
+    /* Kronensicherungen – nur wenn welche im Baum hängen */
+    var ksListe = b.ks || [];
+    if (ksListe.length) {
+      y = blockTitel(doc, 'Kronensicherungen', y, true);
+      doc.autoTable({
+        startY: y, margin: { left: M.l, right: M.r }, tableWidth: M.w,
+        styles: { fontSize: 6.8, cellPadding: 1.1, lineColor: C.linie, lineWidth: 0.15, valign: 'top' },
+        headStyles: { fillColor: C.kopfBg, textColor: [68, 68, 68], fontSize: 6, fontStyle: 'bold' },
+        columnStyles: {
+          0: { cellWidth: M.w * 0.16 }, 1: { cellWidth: M.w * 0.11, halign: 'center' },
+          2: { cellWidth: M.w * 0.09, halign: 'center' }, 3: { cellWidth: M.w * 0.15 },
+          4: { cellWidth: M.w * 0.09, halign: 'center' }, 5: { cellWidth: M.w * 0.13 },
+          6: { cellWidth: 'auto' }
+        },
+        head: [['Bezeichnung', 'Farbe / Jahr', 'Austausch', 'System', 'Bruchlast', 'Bewertung', 'Mängel']],
+        body: ksListe.map(function (k) {
+          var dauer = parseInt(k.einsatzdauer, 10) || 8,
+              austausch = k.einbaujahr ? (parseInt(k.einbaujahr, 10) + dauer) : '–';
+          return [
+            k.bezeichnung || k.system || 'Kronensicherung',
+            (k.farbe || '?') + (k.einbaujahr ? ' / ' + k.einbaujahr : ''),
+            String(austausch),
+            (k.system || '').replace('e Bruchsicherung', '').replace('Trag-/Haltesicherung', 'Trag/Halte'),
+            k.bruchlast ? k.bruchlast + ' t' : '–',
+            k.bewertung || '',
+            (k.maengel || []).length ? (k.maengel || []).join(', ') : 'keine'
+          ];
+        })
+      });
+      y = doc.lastAutoTable.finalY + 1.4;
+      t(doc, 'Jahresfarben sind eine Branchenkonvention der Hersteller, keine Norm. Der Zyklus ' +
+             'beträgt acht Jahre; das Einbaujahr ist im Zweifel an der aufgedruckten Jahreszahl zu prüfen.',
+        M.l, y + 2.4, { size: 5.9, color: C.weich });
+      y += 5.4;
+    }
+
     y = blockTitel(doc, 'Grenzen der Kontrolle nach FLL 5.4', y, true);
     y = textKasten(doc, b.grenzen || 'Keine Einschränkungen der Beurteilbarkeit festgestellt.', y, 9);
     y += 2.4;
@@ -329,6 +401,53 @@ var PDF = (function () {
     }
   }
 
+  /**
+   * Fotoreihe im echten Seitenverhältnis.
+   *
+   * Vorher wurde jedes Bild in einen 45 × 16 mm flachen Kasten gezogen –
+   * aus einem Hochformat wurde dabei eine Litfaßsäule. Das Foto ist im
+   * Bericht ein Beweismittel; verzerrt taugt es dafür nicht. Alle Bilder
+   * bekommen deshalb dieselbe Höhe und ihre eigene Breite, und die Reihe
+   * wird so weit heruntergerechnet, bis sie auf die Seite passt.
+   */
+  function fotoBlock(doc, fotos, y, platzHoehe) {
+    fotos = (fotos || []).slice(0, 4);
+    if (!fotos.length) return y;                   /* keine leeren Kästen mehr */
+
+    var bilder = fotos.map(function (f) {
+      var v = 4 / 3;                               /* Notnagel, falls unlesbar */
+      try {
+        var p = doc.getImageProperties(f);
+        if (p && p.width && p.height) v = p.width / p.height;
+      } catch (e) { /* dann eben geschätzt */ }
+      return { daten: f, v: v };
+    });
+
+    var pad = 1.4, luecke = 2.0,
+        platzB = M.w - 2 * pad,
+        summeV = bilder.reduce(function (s, b) { return s + b.v; }, 0),
+        /* Höhe, bei der die Reihe genau die Breite ausfüllt */
+        hBreite = (platzB - luecke * (bilder.length - 1)) / summeV,
+        /* Höhe, die auf der Seite noch übrig ist */
+        hSeite = platzHoehe - 4.4 - 2 * pad - 1.2,
+        h = Math.min(hBreite, hSeite, 92);
+
+    if (h < 14) return y;                          /* dann lieber gar nicht */
+
+    var reihe = h * summeV + luecke * (bilder.length - 1),
+        x = M.l + (M.w - reihe) / 2;               /* mittig, sonst kippt die Seite */
+
+    y = blockTitel(doc, 'Fotodokumentation', y, true);
+    rect(doc, M.l, y, M.w, h + 2 * pad, null, C.linie);
+    bilder.forEach(function (b) {
+      var bw = h * b.v;
+      try { doc.addImage(b.daten, 'JPEG', x, y + pad, bw, h); } catch (e) { /* defekt */ }
+      rect(doc, x, y + pad, bw, h, null, [201, 205, 201], 0.15);
+      x += bw + luecke;
+    });
+    return y + h + 2 * pad;
+  }
+
   /** Blocktitel mit eigener Breite, für die zweispaltige Zeile. */
   function blockTitel2(doc, txt, y, x, w) {
     rect(doc, x, y, w, 4.4, C.grau, null);
@@ -340,32 +459,31 @@ var PDF = (function () {
    * Einzelblatt Seite 2 – Befund
    * ====================================================================== */
 
-  /* Schadsymptomkatalog nach FLL 2020, gegliedert nach Baumteilen. */
-  var KATALOG = {
-    K: ['Astab-/Astausbrüche','Astrisse','Astungswunden / -fäulen','baumfremder Bewuchs',
-        'auffällige Belaubung','Fehlentwicklungen','Höhlungen','Kappungsstellen',
-        'vorh. Kronensicherung','Lichtraumprofil','Pilzbefall','Rindenschäden',
-        'Totholzbildung','Vergabelungen','Wipfeldürre','Zwiesel'],
-    S: ['Anfahrschäden','Astungswunden','baumfremder Bewuchs','Fäulen','Gewindestangen / Plomben',
-        'Höhlungen','Pilzbefall','Rindenschäden','Risse','Schadinsekten / Bohrmehl',
-        'Schrägstand','Stammaustriebe','Wuchsanomalien','Zwiesel','eingew. Drähte / Schnüre'],
-    W: ['Adventiv-/Würgewurzeln','Bodenaufwölbungen','Höhlungen','Pilzbefall','Rindenschäden',
-        'Risse','Stammfußverbreiterung','Stockaustriebe','Wuchsanomalien'],
-    Wu:['Bodenaufwölbungen','Bodenrisse','Pilzbefall'],
-    V: ['Baugruben / -gräben','Bodenauftrag / -abtrag','Bodenverdichtung','Bodenversiegelung',
-        'Freistellung','Grundwasserabsenkung','Grundwasseranstau']
-  };
+  /* Der Schadsymptomkatalog liegt in 10_data.js. Eine zweite Kopie hier würde
+     früher oder später auseinanderlaufen. */
+  var KATALOG = (typeof DATA !== 'undefined' && DATA.SYMPTOME)
+    ? Object.keys(DATA.SYMPTOME).reduce(function (o, g) {
+        o[g] = DATA.SYMPTOME[g].codes; return o;
+      }, {})
+    : {};
 
   function symSpalte(doc, x, y, breite, titel, gruppe, codes, angekreuzt) {
     t(doc, titel.toUpperCase(), x + 1.6, y + 2.6, { size: 6.4, bold: true, color: C.gruen });
     line(doc, x + 1.6, y + 3.6, x + breite - 1.6, y + 3.6, [219, 228, 221]);
-    var yy = y + 6.4;
+    var yy = y + 6.4,
+        platz = breite - 6.4;
     codes.forEach(function (bez, i) {
       var code = gruppe + (i + 1),
           an = angekreuzt.indexOf(code) >= 0;
       checkbox(doc, x + 1.6, yy, an);
-      t(doc, bez, x + 4.8, yy, { size: 6.6, bold: an, color: an ? C.text : [153, 153, 153] });
-      yy += 2.95;
+      /* Lange Merkmale umbrechen, statt sie in die Nachbarspalte laufen zu lassen. */
+      doc.setFont('helvetica', an ? 'bold' : 'normal');
+      doc.setFontSize(6.6);
+      var zeilen = doc.splitTextToSize(String(bez), platz);
+      zeilen.forEach(function (z, zi) {
+        t(doc, z, x + 4.8, yy + zi * 2.4, { size: 6.6, bold: an, color: an ? C.text : [153, 153, 153] });
+      });
+      yy += 2.95 + (zeilen.length - 1) * 2.4;
     });
     return yy;
   }
@@ -381,7 +499,8 @@ var PDF = (function () {
     var e2 = symSpalte(doc, M.l + sw,     y, sw, 'Stamm (S1–S16)',  'S', KATALOG.S, bef.S || []);
     var e3 = symSpalte(doc, M.l + sw * 2, y, sw, 'Stammfuß / Wurzelanlauf (W1–W9)', 'W', KATALOG.W, bef.W || []);
     var e3b = symSpalte(doc, M.l + sw * 2, e3 + 1.2, sw, 'Wurzelbereich (Wu1–Wu3)', 'Wu', KATALOG.Wu, bef.Wu || []);
-    var e4 = symSpalte(doc, M.l + sw * 3, y, sw, 'Baumumfeld (V1–V7)', 'V', KATALOG.V, bef.V || []);
+    var e4 = symSpalte(doc, M.l + sw * 3, y, sw, 'Baumumfeld (V1–V' + (KATALOG.V || []).length + ')',
+                       'V', KATALOG.V, bef.V || []);
 
     /* Pilzbestimmung in der vierten Spalte unter dem Baumumfeld */
     if (b.pilz && b.pilz.name) {
@@ -432,23 +551,6 @@ var PDF = (function () {
     });
     y = doc.lastAutoTable.finalY + 2.4;
 
-    /* Fotos */
-    var fotos = MAP.fotos(b);
-    y = blockTitel(doc, 'Fotodokumentation', y, true);
-    var fh = 16, fx = M.l + 1.4, fw = (M.w - 2.8 - 3 * 1.4) / 4;
-    rect(doc, M.l, y, M.w, fh + 2.8, null, C.linie);
-    for (var i = 0; i < 4; i++) {
-      var x = fx + i * (fw + 1.4);
-      if (fotos[i]) {
-        try { doc.addImage(fotos[i], 'JPEG', x, y + 1.4, fw, fh); } catch (e) { /* defekt, dann leer */ }
-      } else {
-        rect(doc, x, y + 1.4, fw, fh, [236, 238, 236], [213, 216, 213], 0.15);
-      }
-    }
-    y += fh + 5.2;
-
-    /* Rechtstexte zweispaltig */
-    y = blockTitel(doc, 'Grundlagen, Methodik und Hinweise', y, true);
     var punkte = [
       ['Grundlage:', (a.kontrollart || 'Regelkontrolle') + ' gemäß FLL-Baumkontrollrichtlinien, 3. Ausgabe 2020. Rechtsgrundlage ist die Verkehrssicherungspflicht nach § 823 BGB.'],
       ['Methode:', 'Sichtkontrolle durch fachlich qualifizierte Inaugenscheinnahme vom Boden aus, Besichtigung des Baumes von allen Seiten. Es erfolgte keine eingehende Untersuchung im Sinne der FLL-Baumuntersuchungsrichtlinien.'],
@@ -459,6 +561,21 @@ var PDF = (function () {
       ['Artenschutz:', 'Vor Maßnahmen an Höhlen- und Habitatbäumen ist § 44 BNatSchG zu beachten. Weder Verkehrssicherung noch Artenschutz haben absoluten Vorrang.'],
       ['Aufbewahrung:', 'Die Dokumentation ist 5 Jahre ab der letzten Eintragung aufzubewahren.']
     ];
+
+    /* Rechtstexte und Unterschrift sitzen fest am unteren Seitenrand. Damit
+       steht die Unterschriftenzeile auf jedem Blatt an derselben Stelle – und
+       der ganze Rest der Seite gehört den Fotos. */
+    var fussH = rechtsBlock(doc, punkte, 0, true) + 4.4 + 3.2 + 7.4,
+        yFuss = Math.max(y, M.h - M.u - fussH),
+        fotos = MAP.fotos(b),
+        rest = yFuss - y;
+
+    /* Bei sehr ausführlich dokumentierten Bäumen ist die Seite voll. Dann
+       bekommen die Fotos hinterher ein eigenes Blatt, statt zu schrumpfen. */
+    var eigenesBlatt = fotos.length && rest < 30;
+    if (fotos.length && !eigenesBlatt) fotoBlock(doc, fotos, y, rest);
+
+    y = blockTitel(doc, 'Grundlagen, Methodik und Hinweise', yFuss, true);
     y = rechtsBlock(doc, punkte, y);
 
     /* Unterschrift */
@@ -472,10 +589,22 @@ var PDF = (function () {
       t(doc, p[0], x, y + 3.4, { size: 8, bold: true });
       t(doc, p[1], x, y + 6.4, { size: 6.4, color: C.weich });
     });
+
+    /* Erst jetzt, sonst landete der Fußbereich auf dem neuen Blatt. */
+    if (eigenesBlatt) {
+      doc.addPage();
+      var yf = kopf(doc, a.auftragsNr, 'Einzelblatt ' + MAP.baumNr(b) + ' · Fotos');
+      fotoBlock(doc, fotos, yf + 1.6, M.h - M.u - yf - 1.6);
+    }
   }
 
-  /** Nummerierte Rechtstexte in zwei Spalten. */
-  function rechtsBlock(doc, punkte, y) {
+  /**
+   * Nummerierte Rechtstexte in zwei Spalten.
+   * Mit nurMessen=true wird nichts gezeichnet, sondern nur die Höhe
+   * zurückgegeben – die braucht Seite 2, um den Fußbereich an den unteren
+   * Rand zu setzen und den Rest den Fotos zu geben.
+   */
+  function rechtsBlock(doc, punkte, y, nurMessen) {
     var pad = 1.8,
         sw = (M.w - 2 * pad - 4) / 2,
         haelfte = Math.ceil(punkte.length / 2),
@@ -496,6 +625,7 @@ var PDF = (function () {
     });
 
     var h = Math.max(hoehen[0], hoehen[1]) + 2 * pad;
+    if (nurMessen) return h;
     rect(doc, M.l, y, M.w, h, null, C.linie);
 
     gerendert.forEach(function (g) {
@@ -543,9 +673,10 @@ var PDF = (function () {
       ['Kontrollart', a.kontrollart || 'Regelkontrolle'],
       ['Kontrollzeitraum', a.datumBis ? (a.datum + ' – ' + a.datumBis) : a.datum],
       ['Belaubungszustand', a.belaubung], ['Umfang', anzahl + ' Bäume'],
-      ['Baumkontrolleur', a.kontrolleur + (a.qualifikation ? ', ' + a.qualifikation : '')],
+      ['Baumkontrolleur', a.kontrolleur + (a.qualifikationVoll ? ', ' + a.qualifikationVoll : '')],
       ['Berichtsdatum', a.berichtsdatum || a.datum]
     ];
+    if (a.gpsLat && a.gpsLon) daten.splice(1, 0, ['Objektstandort', a.gpsLat + ' N · ' + a.gpsLon + ' E']);
     daten.forEach(function (d, i) {
       var yy = dy + i * zh;
       rect(doc, dx, yy, lw, zh, [244, 246, 244], null);
@@ -670,6 +801,81 @@ var PDF = (function () {
     var s = [];
     liste.forEach(function (x) { if (s.indexOf(MAP.baumNr(x.b)) < 0) s.push(MAP.baumNr(x.b)); });
     return s.length;
+  }
+
+  /** Übersicht aller Kronensicherungen im Bestand, nach Dringlichkeit des Austauschs. */
+  function kronensicherungen(doc, a, baeume, jahr) {
+    var alle = [];
+    baeume.forEach(function (b) {
+      (b.ks || []).forEach(function (k) { alle.push({ b: b, k: k }); });
+    });
+    if (!alle.length) return false;
+
+    var y = kopf(doc, a.auftragsNr, 'Kronensicherungen');
+    t(doc, 'Kronensicherungen', M.l, y + 3.2, { size: 11, bold: true });
+    var baumZahl = new Set(alle.map(function (x) { return x.b.nr; })).size;
+    t(doc, alle.length + (alle.length === 1 ? ' Sicherung' : ' Sicherungen') +
+           ' in ' + baumZahl + (baumZahl === 1 ? ' Baum' : ' Bäumen') +
+           ' · sortiert nach Austauschjahr', M.l, y + 6.8, { size: 7.2, color: C.weich });
+    y += 10.4;
+
+    alle.forEach(function (x) {
+      var dauer = parseInt(x.k.einsatzdauer, 10) || 8;
+      x.austausch = x.k.einbaujahr ? parseInt(x.k.einbaujahr, 10) + dauer : 9999;
+    });
+    alle.sort(function (p, q) { return p.austausch - q.austausch; });
+
+    doc.autoTable({
+      startY: y, margin: { left: M.l, right: M.r }, tableWidth: M.w, showHead: 'everyPage',
+      styles: { fontSize: 7, cellPadding: 1.2, lineColor: [204, 204, 204], lineWidth: 0.15, valign: 'top' },
+      headStyles: { fillColor: C.kopfBg, textColor: [68, 68, 68], fontSize: 6.2, fontStyle: 'bold' },
+      columnStyles: {
+        0: { cellWidth: M.w * 0.06, halign: 'center', fontStyle: 'bold' },
+        1: { cellWidth: M.w * 0.13 }, 2: { cellWidth: M.w * 0.14 },
+        3: { cellWidth: M.w * 0.1, halign: 'center' }, 4: { cellWidth: M.w * 0.09, halign: 'center' },
+        5: { cellWidth: M.w * 0.12 }, 6: { cellWidth: 'auto' }
+      },
+      head: [['Nr.', 'Baumart', 'Bezeichnung', 'Farbe / Jahr', 'Austausch', 'Bewertung', 'Mängel']],
+      body: alle.map(function (x) {
+        return [x.b.nr, MAP.artDt(x.b), x.k.bezeichnung || x.k.system || '',
+          (x.k.farbe || '?') + (x.k.einbaujahr ? ' / ' + x.k.einbaujahr : ''),
+          x.austausch === 9999 ? '–' : String(x.austausch),
+          x.k.bewertung || '',
+          (x.k.maengel || []).length ? (x.k.maengel || []).join(', ') : 'keine'];
+      }),
+      didParseCell: function (data) {
+        if (data.section === 'body' && data.column.index === 4) {
+          var wert = parseInt(data.cell.raw, 10);
+          if (wert && jahr) {
+            if (wert < jahr)       { data.cell.styles.textColor = [176, 48, 48]; data.cell.styles.fontStyle = 'bold'; }
+            else if (wert === jahr){ data.cell.styles.textColor = [209, 117, 26]; data.cell.styles.fontStyle = 'bold'; }
+            else if (wert - jahr <= 2) data.cell.styles.textColor = [150, 120, 20];
+          }
+        }
+      }
+    });
+    y = doc.lastAutoTable.finalY + 3.2;
+
+    /* Farblegende, damit der Kunde die Kennungen selbst zuordnen kann */
+    y = blockTitel(doc, 'Jahresfarben der Hersteller', y, true);
+    var farben = [['grün', [63,139,63]], ['gelb', [232,197,32]], ['rot', [192,57,43]],
+                  ['blau', [43,108,176]], ['braun', [123,74,37]], ['violett', [122,63,157]],
+                  ['orange', [226,134,26]], ['grau', [138,138,138]]],
+        basis = jahr || 2026,
+        sw = M.w / 8;
+    rect(doc, M.l, y, M.w, 13.5, null, C.linie);
+    farben.forEach(function (f, i) {
+      var x = M.l + i * sw, rest = (basis - (i + 1)) % 8;
+      rect(doc, x + 1.6, y + 1.8, sw - 3.2, 4, f[1], null);
+      t(doc, f[0], x + sw / 2, y + 7.6, { size: 6, align: 'center' });
+      var j = basis - ((basis - (i + 1)) % 8);
+      t(doc, String(j) + ' · ' + String(j - 8), x + sw / 2, y + 11, { size: 5.6, color: C.weich, align: 'center' });
+    });
+    y += 15;
+    textBlock(doc, 'Herstellerübergreifender Achtjahreszyklus, Branchenkonvention und keine Norm. ' +
+      'Weil der Zyklus genauso lang ist wie die Mindesteinsatzdauer nach ZTV-Baumpflege, ist eine Farbe ' +
+      'nie eindeutig – die aufgedruckte Jahreszahl geht vor.', M.l + 1, y, M.w - 2, { size: 6.4, lh: 2.8 });
+    return true;
   }
 
   function bestandsliste(doc, a, baeume) {
@@ -847,6 +1053,8 @@ var PDF = (function () {
       doc.addPage(); zusammenfassung(doc, a, baeume);
       doc.addPage(); bestandsliste(doc, a, baeume);
       doc.addPage(); massnahmenliste(doc, a, baeume);
+      var hatKS = baeume.some(function (b) { return (b.ks || []).length; });
+      if (hatKS) { doc.addPage(); kronensicherungen(doc, a, baeume, opt.jahr); }
       doc.addPage(); trenner(doc, a, baeume.length);
       baeume.forEach(function (b) {
         doc.addPage(); blattSeite1(doc, a, b, 'Einzelkontrollblatt – Baum ' + MAP.baumNr(b));

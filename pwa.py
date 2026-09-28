@@ -36,14 +36,18 @@ MANIFEST = """{
 """
 
 # Der Service Worker legt die App beim ersten Aufruf in den Cache und bedient
-# sie danach von dort. Neue Fassungen werden im Hintergrund nachgeladen, aber
-# nie mitten in einer laufenden Erfassung aktiviert.
+# sie danach von dort. Der Cache-Name ist bewusst FEST und enthält keine
+# Fassungsnummer: sonst müsste bei jeder Änderung auch sw.js neu hochgeladen
+# werden. So ist index.html die einzige Datei, die sich je ändert. Neue
+# Fassungen kommen trotzdem an, der Fetch-Handler vergleicht die ETags und
+# meldet der laufenden Seite, wenn sich etwas geändert hat.
 SW = """/* Service Worker – macht die App offline verfügbar. */
-var CACHE = 'baumkontrolle-%(version)s';
+var CACHE = 'baumkontrolle';
 var DATEIEN = ['./', './index.html', './manifest.webmanifest',
                './icon-192.png', './icon-512.png', './apple-touch-icon.png'];
 
 self.addEventListener('install', function (e) {
+  self.skipWaiting();
   e.waitUntil(caches.open(CACHE).then(function (c) { return c.addAll(DATEIEN); }));
 });
 
@@ -62,6 +66,7 @@ self.addEventListener('fetch', function (e) {
     caches.match(e.request).then(function (treffer) {
       var netz = fetch(e.request).then(function (antwort) {
         if (antwort && antwort.status === 200) {
+          if (treffer && geaendert(treffer, antwort)) sagBescheid();
           var kopie = antwort.clone();
           caches.open(CACHE).then(function (c) { c.put(e.request, kopie); });
         }
@@ -70,6 +75,31 @@ self.addEventListener('fetch', function (e) {
       return treffer || netz;
     })
   );
+});
+
+/* GitHub Pages liefert einen ETag je Datei. Ändert er sich, liegt eine neue
+   Fassung im Cache – ohne dass irgendein Inhalt gelesen werden müsste. */
+function geaendert(alt, neu) {
+  var a = alt.headers.get('etag'), b = neu.headers.get('etag');
+  return !!(a && b && a !== b);
+}
+
+/* Beim Neuladen laufen mehrere Anfragen gleichzeitig, und die erste davon
+   kommt oft an, bevor die neue Seite überhaupt zuhört. Deshalb wird der
+   Fund gemerkt und die Seite darf jederzeit nachfragen. */
+var neueDa = false;
+
+function sagBescheid() {
+  neueDa = true;
+  self.clients.matchAll({ type: 'window' }).then(function (fenster) {
+    fenster.forEach(function (f) { f.postMessage({ art: 'neueFassung' }); });
+  });
+}
+
+self.addEventListener('message', function (e) {
+  if (e.data && e.data.art === 'fassungPruefen' && neueDa && e.source) {
+    e.source.postMessage({ art: 'neueFassung' });
+  }
 });
 """
 
@@ -80,6 +110,24 @@ REGISTRIERUNG = """
 if ('serviceWorker' in navigator && location.protocol.indexOf('http') === 0) {
   window.addEventListener('load', function () {
     navigator.serviceWorker.register('./sw.js').catch(function () {});
+  });
+  /* Meldungen des Service Workers werden bis zum Freischalten zwischengelagert;
+     ohne startMessages() ginge eine früh gesendete Nachricht verloren. */
+  navigator.serviceWorker.addEventListener('message', function (e) {
+    if (e.data && e.data.art === 'neueFassung' && window.App) App.neueFassung();
+  });
+  navigator.serviceWorker.startMessages();
+
+  /* Zweimal nachfragen: einmal sofort, einmal nachdem das Nachladen im
+     Hintergrund durch sein kann. Die App ist gross, das dauert. */
+  function nachfragen() {
+    navigator.serviceWorker.ready.then(function (r) {
+      if (r && r.active) r.active.postMessage({ art: 'fassungPruefen' });
+    }).catch(function () {});
+  }
+  window.addEventListener('load', function () {
+    setTimeout(nachfragen, 1500);
+    setTimeout(nachfragen, 6000);
   });
 }
 </script>
@@ -124,7 +172,7 @@ def main():
     with open(os.path.join(DOCS, 'manifest.webmanifest'), 'w', encoding='utf-8') as f:
         f.write(MANIFEST)
     with open(os.path.join(DOCS, 'sw.js'), 'w', encoding='utf-8') as f:
-        f.write(SW % {'version': version})
+        f.write(SW)
     # GitHub Pages soll die Dateien nicht durch Jekyll schicken
     open(os.path.join(DOCS, '.nojekyll'), 'w').close()
 

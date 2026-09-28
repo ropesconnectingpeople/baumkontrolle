@@ -69,9 +69,11 @@ var XLS = (function () {
       ['Kontrollart', a.kontrollart],
       ['Kontrolldatum', a.datum + (a.datumBis ? ' bis ' + a.datumBis : '')],
       ['Belaubungszustand', a.belaubung],
+      ['Erfassungsrichtung', a.erfassungsrichtung || '–'],
+      ['Objektstandort', (a.gpsLat && a.gpsLon) ? (a.gpsLat + ' N / ' + a.gpsLon + ' E') : '–'],
       ['Witterung', a.witterung],
       ['Baumkontrolleur', a.kontrolleur],
-      ['Qualifikation', a.qualifikation + (a.zertNr ? ' (Zert.-Nr. ' + a.zertNr + ')' : '')],
+      ['Qualifikation', a.qualifikationVoll || a.qualifikation],
       [],
       ['Kontrollierte Bäume', baeume.length],
       ['davon stärker geschädigt', schwer],
@@ -84,7 +86,7 @@ var XLS = (function () {
     ], [26, 62]);
 
     /* --- Bestandsliste --- */
-    var kopf = ['Baum-Nr.', 'Baumart deutsch', 'Baumart botanisch', 'Stammzahl', 'Straße',
+    var kopf = ['Baum-Nr.', 'Baumart deutsch', 'Baumart botanisch', 'Stammzahl', 'Lagebeschreibung',
       'Haus-Nr.', 'Flurstück', 'Baumumfeld', 'Breite', 'Länge', 'Höhe (m)', 'Krone Ø (m)',
       'Stammumfang (cm)', 'Messhöhe', 'Kronenansatz (m)', 'Alter', 'Entwicklungsphase',
       'Zustand', 'Sicherheitserwartung', 'Vitalität Roloff', 'Intervall (FLL-Vorschlag)',
@@ -94,7 +96,7 @@ var XLS = (function () {
     var zeilen = [kopf].concat(baeume.map(function (b) {
       var mn = b.massnahmen || [],
           stufe = mn.length ? Math.min.apply(null, mn.map(function (m) { return m.stufe || 5; })) : null;
-      return [b.nr, b.artDt, b.artBot, b.stammzahl, b.strasse, b.hausNr, b.flurstueck, b.umfeld,
+      return [b.nr, b.artDt, b.artBot, b.stammzahl, b.lage || b.strasse, b.hausNr, b.flurstueck, b.umfeld,
         b.gpsLat, b.gpsLon, num(b.hoehe), num(b.kroneD), num(b.stammumfang), b.messhoehe,
         num(b.kronenansatz), b.alter, b.phase, b.zustand, b.erwartung, b.roloff,
         b.intervallMatrix, b.intervall, b.naechsteKontrolle, symptomText(b),
@@ -110,7 +112,7 @@ var XLS = (function () {
     alleM.sort(function (x, z) { return (x.m.stufe || 9) - (z.m.stufe || 9); });
     alleM.forEach(function (x) {
       mz.push([DRING[x.m.stufe] || '', x.m.stufe || '', x.b.nr, x.b.artDt,
-        [x.b.strasse, x.b.hausNr].filter(Boolean).join(' '),
+        [x.b.lage || x.b.strasse, x.b.hausNr].filter(Boolean).join(' '),
         x.m.text, x.m.frist, x.m.begruendung, '', '']);
     });
     blatt(mappe, 'Maßnahmen', mz, [26, 7, 9, 20, 24, 38, 18, 46, 13, 26]);
@@ -141,11 +143,39 @@ var XLS = (function () {
       });
     blatt(mappe, 'Befundübersicht', bz, [24, 34, 13, 9, 40]);
 
+    /* --- Kronensicherungen --- */
+    var ks = [['Baum-Nr.', 'Baumart', 'Bezeichnung', 'Farbe', 'Einbaujahr', 'Einsatzdauer (J.)',
+               'Austauschjahr', 'Systemtyp', 'Bauart', 'Verbundform', 'Hersteller', 'Bruchlast (t)',
+               'Anzahl', 'Einbauhöhe (m)', 'Ø Astbasis (cm)', 'Bemessung ZTV (t)', 'Mängel',
+               'Bewertung', 'Bemerkung']];
+    baeume.forEach(function (b) {
+      (b.ks || []).forEach(function (k) {
+        var dauer = parseInt(k.einsatzdauer, 10) || 8,
+            astbasis = parseFloat(k.astbasis),
+            bem = astbasis ? DATA.ksBemessung(astbasis, /statisch/i.test(k.system || '')) : '';
+        ks.push([b.nr, b.artDt, k.bezeichnung, k.farbe, num(k.einbaujahr), dauer,
+          k.einbaujahr ? parseInt(k.einbaujahr, 10) + dauer : '',
+          k.system, k.bauart, k.verbund, k.hersteller, num(k.bruchlast), num(k.anzahl),
+          num(k.einbauhoehe), num(k.astbasis), bem,
+          (k.maengel || []).join(', '), k.bewertung, k.bemerkung]);
+      });
+    });
+    if (ks.length > 1) {
+      ks.push([]);
+      ks.push(['Jahresfarben (Achtjahreszyklus, Branchenkonvention der Hersteller, keine Norm)']);
+      ks.push(['Farbe', 'Einbaujahre']);
+      DATA.KS_FARBEN.forEach(function (f) {
+        ks.push([f.name, DATA.ksJahre(f.name, new Date().getFullYear()).join(' · ')]);
+      });
+      blatt(mappe, 'Kronensicherungen', ks,
+        [9, 18, 20, 10, 11, 13, 13, 24, 18, 20, 16, 12, 8, 13, 15, 15, 40, 16, 30]);
+    }
+
     /* --- Kontrolltermine --- */
     var tz = [['Baum-Nr.', 'Baumart', 'Standort', 'Zustand', 'Intervall',
                'Nächste Regelkontrolle', 'Grundlage']];
     baeume.forEach(function (b) {
-      tz.push([b.nr, b.artDt, [b.strasse, b.hausNr].filter(Boolean).join(' '), b.zustand,
+      tz.push([b.nr, b.artDt, [b.lage || b.strasse, b.hausNr].filter(Boolean).join(' '), b.zustand,
         b.intervall, b.naechsteKontrolle, DATA.intervallGrundlage(b.intervall)]);
     });
     blatt(mappe, 'Kontrolltermine', tz, [9, 20, 24, 18, 16, 20, 56]);
@@ -228,3 +258,32 @@ var XLS = (function () {
 
   return { bestand: bestand, kalkulation: kalkulation };
 })();
+
+</script>
+
+<script>
+/* Service Worker nur registrieren, wenn die App über http(s) läuft.
+   Bei einer lokal geöffneten Datei gibt es keinen – und das ist in Ordnung. */
+if ('serviceWorker' in navigator && location.protocol.indexOf('http') === 0) {
+  window.addEventListener('load', function () {
+    navigator.serviceWorker.register('./sw.js').catch(function () {});
+  });
+  /* Meldungen des Service Workers werden bis zum Freischalten zwischengelagert;
+     ohne startMessages() ginge eine früh gesendete Nachricht verloren. */
+  navigator.serviceWorker.addEventListener('message', function (e) {
+    if (e.data && e.data.art === 'neueFassung' && window.App) App.neueFassung();
+  });
+  navigator.serviceWorker.startMessages();
+
+  /* Zweimal nachfragen: einmal sofort, einmal nachdem das Nachladen im
+     Hintergrund durch sein kann. Die App ist gross, das dauert. */
+  function nachfragen() {
+    navigator.serviceWorker.ready.then(function (r) {
+      if (r && r.active) r.active.postMessage({ art: 'fassungPruefen' });
+    }).catch(function () {});
+  }
+  window.addEventListener('load', function () {
+    setTimeout(nachfragen, 1500);
+    setTimeout(nachfragen, 6000);
+  });
+}
