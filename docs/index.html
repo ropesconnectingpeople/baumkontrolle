@@ -14,26 +14,26 @@
 :root{
   --gruen:#2d5a3d; --gruen-h:#3d7050; --gruen-l:#f0f5f1;
   --rot:#b03030; --orange:#d1751a; --gelb:#c9a227; --oliv:#5b8c3e; --grau:#6b7280;
-  --bg:#f2f3f2; --karte:#fff; --rand:#dcdfdc; --text:#1a1a1a; --weich:#6b6b6b;
+  --bg:#eef1ee; --karte:#fff; --rand:#e1e5e1; --text:#141915; --weich:#6b7280;
   --safe-t:env(safe-area-inset-top); --safe-b:env(safe-area-inset-bottom);
 }
 *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
 html,body{margin:0;padding:0;background:var(--bg);color:var(--text);
   font:16px/1.4 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
   -webkit-text-size-adjust:100%;overscroll-behavior-y:none}
-body{padding-bottom:calc(74px + var(--safe-b))}
-body.ohnetabs{padding-bottom:calc(12px + var(--safe-b))}
+body{padding-bottom:calc(16px + var(--safe-b))}
 
-/* ---------- Reiter unten ---------- */
-.tabs{position:fixed;left:0;right:0;bottom:0;z-index:45;display:grid;
-  grid-template-columns:1fr 1fr 1fr;background:rgba(255,255,255,.97);
-  border-top:1px solid var(--rand);padding-bottom:var(--safe-b);
-  backdrop-filter:saturate(180%) blur(12px)}
-.tabs.aus{display:none}
-.tabs button{background:none;border:0;padding:9px 4px 8px;display:flex;flex-direction:column;
-  align-items:center;gap:3px;color:#8a8f8a;font-size:11px;font-weight:600;min-height:56px}
-.tabs button .zeichen{font-size:19px;line-height:1}
-.tabs button.aktiv{color:var(--gruen)}
+/* ---------- Reiter oben ----------
+   Auf dem Telefon waere unten daumenfreundlicher, auf dem Tablet ist oben
+   richtig, und das Tablet ist das Ziel. Gewechselt wird selten, gearbeitet
+   wird innerhalb eines Reiters. */
+.reiter{position:sticky;top:0;z-index:38;display:flex;background:#fff;
+  border-bottom:1px solid var(--rand);box-shadow:0 1px 2px rgba(20,25,21,.05)}
+.reiter button{flex:1;background:none;border:0;border-bottom:2.5px solid transparent;
+  padding:12px 6px 10px;font-size:14px;font-weight:650;color:var(--weich);
+  min-height:46px;white-space:nowrap}
+.reiter button.aktiv{color:var(--gruen);border-bottom-color:var(--gruen)}
+.reiter.aus{display:none}
 
 /* ---------- Kopfzeile ---------- */
 header{position:sticky;top:0;z-index:40;background:var(--gruen);color:#fff;
@@ -45,6 +45,17 @@ header h1{font-size:17px;margin:0;font-weight:700;flex:1;overflow:hidden;
   text-overflow:ellipsis;white-space:nowrap}
 header .aktion{background:#fff;color:var(--gruen);border:0;font-size:15px;font-weight:700;
   padding:8px 14px;border-radius:9px;min-height:38px}
+header .zahnrad{background:rgba(255,255,255,.16);border:0;color:#fff;font-size:19px;
+  width:38px;height:38px;border-radius:9px;padding:0;line-height:1;flex-shrink:0}
+header .zahnrad:active{background:rgba(255,255,255,.3)}
+
+/* ---------- Tablet: zwei Spalten statt Hin und Her ---------- */
+@media (min-width:820px){
+  main{max-width:1180px}
+  .reiter button{font-size:15px}
+  .zweispalten{display:grid;grid-template-columns:minmax(300px,380px) 1fr;
+    gap:14px;align-items:start}
+}
 
 main{padding:12px;max-width:820px;margin:0 auto}
 .view{display:none}
@@ -52,19 +63,20 @@ main{padding:12px;max-width:820px;margin:0 auto}
 @keyframes rein{from{opacity:.4;transform:translateY(4px)}to{opacity:1;transform:none}}
 
 /* ---------- Karten und Felder ---------- */
-.karte{background:var(--karte);border:1px solid var(--rand);border-radius:12px;
-  margin-bottom:12px;overflow:hidden}
-.karte>h2{margin:0;padding:11px 14px;font-size:12px;letter-spacing:.5px;text-transform:uppercase;
-  background:var(--gruen);color:#fff;font-weight:700}
-.karte>h2.grau{background:#4a4a4a}
+.karte{background:var(--karte);border:1px solid var(--rand);border-radius:14px;
+  margin-bottom:13px;overflow:hidden;box-shadow:0 1px 2px rgba(20,25,21,.04)}
+.karte>h2{margin:0;padding:13px 14px 10px;font-size:12.5px;letter-spacing:.2px;
+  text-transform:uppercase;background:#fff;color:var(--gruen);font-weight:800;
+  border-bottom:1px solid var(--rand);border-top:3px solid var(--gruen)}
+.karte>h2.grau{color:#5a615a;border-top-color:#b9c1b9}
 .karte .inhalt{padding:12px 14px}
 .zeile{display:grid;grid-template-columns:1fr 1fr;gap:10px}
 .zeile.eins{grid-template-columns:1fr}
 .zeile.drei{grid-template-columns:1fr 1fr 1fr}
-label{display:block;font-size:11px;text-transform:uppercase;letter-spacing:.4px;
-  color:var(--weich);font-weight:700;margin:0 0 3px}
-input,select,textarea{width:100%;padding:11px 10px;font-size:16px;border:1px solid var(--rand);
-  border-radius:9px;background:#fff;color:var(--text);font-family:inherit;min-height:44px}
+label{display:block;font-size:12.5px;text-transform:none;letter-spacing:0;
+  color:var(--weich);font-weight:600;margin:0 0 4px}
+input,select,textarea{width:100%;padding:11px 12px;font-size:16px;border:1.3px solid var(--rand);
+  border-radius:10px;background:#fcfdfc;color:var(--text);font-family:inherit;min-height:46px}
 textarea{min-height:82px;resize:vertical;line-height:1.4}
 input:focus,select:focus,textarea:focus{outline:0;border-color:var(--gruen);
   box-shadow:0 0 0 3px rgba(45,90,61,.13)}
@@ -73,8 +85,9 @@ input:focus,select:focus,textarea:focus{outline:0;border-color:var(--gruen);
 
 /* ---------- Knöpfe ---------- */
 button{font-family:inherit;cursor:pointer}
-.btn{display:block;width:100%;padding:14px;font-size:16px;font-weight:700;border:0;
-  border-radius:11px;background:var(--gruen);color:#fff;margin-bottom:9px;min-height:50px}
+.btn{display:block;width:100%;padding:15px;font-size:16.5px;font-weight:700;border:0;
+  border-radius:12px;background:var(--gruen);color:#fff;margin-bottom:10px;min-height:52px;
+  box-shadow:0 1px 3px rgba(45,90,61,.25)}
 .btn:active{background:var(--gruen-h)}
 .btn.zweit{background:#fff;color:var(--gruen);border:1.5px solid var(--gruen)}
 .btn.grau{background:#5a5f5a}
@@ -84,22 +97,39 @@ button{font-family:inherit;cursor:pointer}
 .btnreihe{display:grid;grid-template-columns:1fr 1fr;gap:9px}
 .btnreihe .btn{margin-bottom:0}
 
-/* ---------- Baumliste ---------- */
-.baumzeile{display:flex;align-items:center;gap:11px;padding:12px 14px;
-  border-bottom:1px solid var(--rand);background:#fff}
+/* ---------- Baumliste ----------
+   Die Zeile traegt links einen Farbstreifen fuer den Zustand. Beim Scrollen
+   sieht man dadurch den Bestand und nicht nur eine Aufzaehlung. Die
+   Dringlichkeit steht als eigene Marke daneben, das sind zwei verschiedene
+   Aussagen und sie duerfen sich nicht vermischen. */
+.baumzeile{display:flex;align-items:center;gap:11px;padding:12px 13px 12px 10px;
+  border-bottom:1px solid var(--rand);background:#fff;border-left:5px solid transparent}
 .baumzeile:last-child{border-bottom:0}
-.baumzeile .nr{background:var(--gruen-l);color:var(--gruen);font-weight:800;font-size:13px;
-  min-width:42px;height:42px;border-radius:10px;display:flex;align-items:center;
-  justify-content:center;flex-shrink:0}
+.baumzeile .nr{background:#f1f3f1;color:#4c534c;font-weight:800;font-size:13px;
+  min-width:44px;height:44px;border-radius:11px;display:flex;align-items:center;
+  justify-content:center;flex-shrink:0;letter-spacing:.3px}
 .baumzeile .txt{flex:1;min-width:0}
-.baumzeile .txt b{display:block;font-size:15px;overflow:hidden;text-overflow:ellipsis;
-  white-space:nowrap}
-.baumzeile .txt span{font-size:12.5px;color:var(--weich);display:block;overflow:hidden;
-  text-overflow:ellipsis;white-space:nowrap}
-.baumzeile .weg{background:none;border:0;font-size:19px;color:#b9bcb9;padding:8px 4px;
+.baumzeile .txt b{display:block;font-size:16.5px;font-weight:650;letter-spacing:-.2px;
+  overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.baumzeile .txt span{font-size:13px;color:var(--weich);display:block;overflow:hidden;
+  text-overflow:ellipsis;white-space:nowrap;margin-top:1px}
+.baumzeile .weg{background:none;border:0;font-size:17px;color:#c6cac6;padding:8px 2px;
   flex-shrink:0;min-height:40px}
-.punkt{width:9px;height:9px;border-radius:50%;flex-shrink:0}
-.p-gruen{background:var(--oliv)} .p-rot{background:var(--rot)} .p-grau{background:#c3c6c3}
+.baumzeile .marken{display:flex;flex-direction:column;align-items:flex-end;gap:4px;
+  flex-shrink:0}
+.zmark{font-size:11px;font-weight:700;padding:3px 8px;border-radius:7px;white-space:nowrap}
+
+.z-gruen{border-left-color:var(--oliv)}
+.z-gelb{border-left-color:var(--gelb)}
+.z-rot{border-left-color:var(--rot)}
+.z-grau{border-left-color:#d3d7d3}
+.z-gruen .nr{background:#e8f1e6;color:#3b6b2f}
+.z-gelb  .nr{background:#fbf2d8;color:#7a6410}
+.z-rot   .nr{background:#fbe6e6;color:#8f2020}
+.z-gruen .zmark{background:#e8f1e6;color:#3b6b2f}
+.z-gelb  .zmark{background:#fbf2d8;color:#7a6410}
+.z-rot   .zmark{background:#fbe6e6;color:#8f2020}
+.z-grau  .zmark{background:#eef0ee;color:#6b6b6b}
 
 .loeschfrage{background:#fdecec;padding:11px 14px;display:flex;align-items:center;gap:9px;
   border-bottom:1px solid var(--rand)}
@@ -186,6 +216,8 @@ button{font-family:inherit;cursor:pointer}
 .wahl{display:block;width:100%;text-align:left;padding:13px;border:1px solid var(--rand);
   border-radius:10px;background:#fff;font-size:15px;margin-bottom:7px;min-height:46px}
 .wahl:active{background:var(--gruen-l)}
+.wahl.an{border-color:var(--gruen);background:var(--gruen-l)}
+.wahl.an b{color:var(--gruen)}
 .wahl b{display:block}
 .wahl span{font-size:12.5px;color:var(--weich)}
 
@@ -193,14 +225,6 @@ button{font-family:inherit;cursor:pointer}
    Kein Überblenden: Feld, Vorschläge und Tastatur müssen gleichzeitig
    sichtbar bleiben. Die Liste schiebt den Rest nach unten, statt ihn zu
    verdecken – .karte hat overflow:hidden, ein Overlay würde beschnitten. */
-.artchips{display:flex;gap:6px;overflow-x:auto;margin:0 0 7px;padding-bottom:2px;
-  -webkit-overflow-scrolling:touch;scrollbar-width:none}
-.artchips::-webkit-scrollbar{display:none}
-.artchips:empty{display:none}
-.artchips button{flex:0 0 auto;background:var(--gruen-l);color:var(--gruen);
-  border:1px solid #cfe0d4;border-radius:9px;padding:8px 11px;font-size:13.5px;
-  font-weight:700;white-space:nowrap;min-height:38px}
-.artchips button:active{background:#dde9e0}
 .artbot{font-size:12.5px;color:var(--weich);margin-top:4px;min-height:17px;font-style:italic}
 .artbot.frei{color:var(--orange);font-style:normal;font-weight:600}
 .artvor{border:1px solid var(--gruen);border-radius:10px;margin-top:6px;background:#fff;
@@ -276,7 +300,15 @@ table.mini tr:last-child td{border-bottom:0}
   <button class="zurueck" id="btnZurueck" style="display:none">&#8249; Bäume</button>
   <h1 id="titel">Baumkontrolle</h1>
   <button class="aktion" id="btnAktion" style="display:none">Fertig</button>
+  <button class="zahnrad" id="btnZahnrad" onclick="App.zeige('einstellungen')"
+          title="Einstellungen">&#9881;</button>
 </header>
+
+<nav class="reiter" id="reiter">
+  <button id="rtKontrolle" onclick="App.zeige('liste')">Baumkontrolle</button>
+  <button id="rtAngebote" onclick="App.zeige('angebote')">Angebote</button>
+  <button id="rtKunden" onclick="App.zeige('kunden')">Kunden</button>
+</nav>
 
 <main>
 
@@ -286,7 +318,10 @@ table.mini tr:last-child td{border-bottom:0}
     <h2>Auftrag</h2>
     <div class="inhalt" id="auftragKurz"></div>
     <div style="padding:0 14px 12px">
-      <button class="btn zweit" onclick="App.zeige('auftrag')">Auftragsdaten bearbeiten</button>
+      <div class="btnreihe">
+        <button class="btn zweit" onclick="App.zeige('auftrag')">Bearbeiten</button>
+        <button class="btn zweit" onclick="App.auftragWechsel()">Aufträge wechseln</button>
+      </div>
     </div>
   </div>
 
@@ -365,7 +400,6 @@ table.mini tr:last-child td{border-bottom:0}
     <div class="inhalt">
       <div class="feld"><label>Baum-Nr.</label><input id="b_nr"></div>
       <div class="feld artfeld"><label>Baumart</label>
-        <div class="artchips" id="artChips" onmousedown="return false"></div>
         <input id="b_artDt" placeholder="Art tippen, z. B. Eiche"
                autocomplete="off" autocorrect="off" autocapitalize="words" spellcheck="false"
                oninput="App.artTippen()" onfocus="App.artOeffnen()" onblur="App.artFertig()">
@@ -510,10 +544,11 @@ table.mini tr:last-child td{border-bottom:0}
 </div>
 
 <!-- ================= AUSGABE ================= -->
-<div class="view" id="view-ausgabe">
+<!-- ================= ERGEBNISSE ================= -->
+<div class="view" id="view-ergebnisse">
   <div class="kacheln" id="ausgabeKacheln"></div>
 
-  <div class="karte">
+<div class="karte">
     <h2>Protokoll</h2>
     <div class="inhalt">
       <button class="btn" onclick="App.pdf('auto')">PDF erzeugen</button>
@@ -524,6 +559,20 @@ table.mini tr:last-child td{border-bottom:0}
   </div>
 
   <div class="karte">
+    <h2>Tabellen</h2>
+    <div class="inhalt">
+      <button class="btn zweit" onclick="App.excel()">Excel-Bestandsliste</button>
+      <button class="btn zweit" onclick="App.excelKalkulation()">Kalkulation mit Preisen</button>
+      <div class="hinweis">Preise erscheinen nur in der Kalkulation, nie im Kontrollprotokoll.</div>
+    </div>
+  </div>
+
+  </div>
+
+<!-- ================= ANGEBOTE ================= -->
+<div class="view" id="view-angebote">
+  <div class="hinweis" style="margin-bottom:12px">Aus den Befunden der laufenden Kontrolle. Die Positionen gehen nach sevDesk, dort entsteht das Angebot.</div>
+<div class="karte">
     <h2>Angebotspositionen für sevDesk</h2>
     <div class="inhalt">
       <div id="angebotSumme"></div>
@@ -556,16 +605,19 @@ table.mini tr:last-child td{border-bottom:0}
     </div>
   </div>
 
-  <div class="karte">
-    <h2>Tabellen</h2>
-    <div class="inhalt">
-      <button class="btn zweit" onclick="App.excel()">Excel-Bestandsliste</button>
-      <button class="btn zweit" onclick="App.excelKalkulation()">Kalkulation mit Preisen</button>
-      <div class="hinweis">Preise erscheinen nur in der Kalkulation, nie im Kontrollprotokoll.</div>
-    </div>
   </div>
 
+<!-- ================= KUNDEN ================= -->
+<div class="view" id="view-kunden">
   <div class="karte">
+    <h2>Kunden <span id="kundenZahl"></span></h2>
+    <div id="kundenListe"></div>
+  </div>
+  <button class="btn" onclick="App.kundeNeu()">+ Kunde anlegen</button>
+</div>
+
+<div class="view" id="view-einstellungen">
+<div class="karte">
     <h2 class="grau">Sicherung</h2>
     <div class="inhalt">
       <button class="btn zweit" onclick="App.sicherungExport()">Sicherung speichern (JSON)</button>
@@ -576,10 +628,6 @@ table.mini tr:last-child td{border-bottom:0}
         in die Historie und die Befunde werden geleert.</div>
     </div>
   </div>
-</div>
-
-<!-- ================= EINSTELLUNGEN ================= -->
-<div class="view" id="view-einstellungen">
   <div class="karte">
     <h2>Betrieb</h2>
     <div class="inhalt">
@@ -635,15 +683,6 @@ table.mini tr:last-child td{border-bottom:0}
 </div>
 
 </main>
-
-<nav class="tabs" id="tabs">
-  <button id="tabListe" onclick="App.zeige('liste')">
-    <span class="zeichen">&#9651;</span>Bäume</button>
-  <button id="tabAusgabe" onclick="App.zeige('ausgabe')">
-    <span class="zeichen">&#8681;</span>Ausgabe</button>
-  <button id="tabEinstellungen" onclick="App.zeige('einstellungen')">
-    <span class="zeichen">&#9881;</span>Einstellungen</button>
-</nav>
 
 <div id="meldung"><span id="meldungText"></span><button id="meldungKnopf"></button></div>
 
@@ -1066,6 +1105,96 @@ var o=[];var l=Array.isArray(e);for(f=n.s.c;f<=n.e.c;++f)s[f]=ya(f);for(var c=n.
 
 </script>
 <script>
+
+/* ===== 05_db.js ===== */
+/* =============================================================================
+ * 05_db.js  –  Ablage der Aufträge in IndexedDB
+ * Baumkontrolltool Hundertmark
+ *
+ * Warum nicht localStorage, wie bisher alles andere:
+ * localStorage fasst rund 4 MB. Ein Foto wiegt als Base64 etwa 600 KB, also
+ * ist nach sechs, sieben Bäumen Schluss. Die Kontrolle Fürstenauer Forst mit
+ * 17 Bäumen kam auf 14,1 MB. Ab der Grenze hat die App nichts mehr
+ * weggeschrieben und die Erfassung lebte nur noch im Arbeitsspeicher.
+ *
+ * IndexedDB hat diese Grenze nicht, auf dem Gerät stehen dort mehrere hundert
+ * MB zur Verfügung. Der Preis ist, dass alles asynchron läuft.
+ *
+ * Bewusst klein gehalten: ein Speicher, vier Zugriffe, keine Bibliothek.
+ * ========================================================================== */
+
+var DB = (function () {
+  'use strict';
+
+  var NAME = 'baumkontrolle', LAGER = ['auftraege', 'kunden'], FASSUNG = 2;
+  var db = null, kaputt = false, wartend = null;
+
+  function oeffnen(fertig) {
+    if (db) return fertig(db);
+    if (kaputt || !window.indexedDB) return fertig(null);
+    /* Mehrere Zugriffe kurz nach dem Start dürfen nicht jeweils ihre eigene
+       Verbindung aufmachen, sonst kommen sie sich gegenseitig in die Quere. */
+    if (wartend) { wartend.push(fertig); return; }
+    wartend = [fertig];
+
+    function alleBenachrichtigen(d) {
+      var w = wartend;
+      wartend = null;
+      w.forEach(function (f) { f(d); });
+    }
+
+    var a;
+    try { a = window.indexedDB.open(NAME, FASSUNG); }
+    catch (e) { kaputt = true; return alleBenachrichtigen(null); }
+
+    a.onupgradeneeded = function (e) {
+      var d = e.target.result;
+      LAGER.forEach(function (n) {
+        if (!d.objectStoreNames.contains(n)) d.createObjectStore(n, { keyPath: 'id' });
+      });
+    };
+    a.onsuccess = function () { db = a.result; alleBenachrichtigen(db); };
+    /* Im privaten Modus mancher Browser wirft das Öffnen. Dann fällt die App
+       auf localStorage zurück, statt gar nicht zu starten. */
+    a.onerror = a.onblocked = function () { kaputt = true; alleBenachrichtigen(null); };
+  }
+
+  /** Eine Transaktion, ein Zugriff, ein Rückruf mit (fehler, ergebnis). */
+  function zugriff(lager, art, arbeit, fertig) {
+    fertig = fertig || function () {};
+    oeffnen(function (d) {
+      if (!d) return fertig(new Error('IndexedDB nicht verfügbar'), null);
+      var t, anfrage, ergebnis = null;
+      try {
+        t = d.transaction(lager, art);
+        anfrage = arbeit(t.objectStore(lager));
+      } catch (e) { return fertig(e, null); }
+      if (anfrage) anfrage.onsuccess = function () { ergebnis = anfrage.result; };
+      t.oncomplete = function () { fertig(null, ergebnis); };
+      t.onerror = t.onabort = function () { fertig(t.error || new Error('Schreibfehler'), null); };
+    });
+  }
+
+  /** Ein Zugriffspaket je Lager, damit die App nicht überall den Namen mitschleppt. */
+  function lager(n) {
+    return {
+      lesen:     function (id, f)  { zugriff(n, 'readonly',  function (s) { return s.get(id); }, f); },
+      alle:      function (f)      { zugriff(n, 'readonly',  function (s) { return s.getAll(); }, f); },
+      schreiben: function (rec, f) { zugriff(n, 'readwrite', function (s) { return s.put(rec); }, f); },
+      loeschen:  function (id, f)  { zugriff(n, 'readwrite', function (s) { return s['delete'](id); }, f); }
+    };
+  }
+
+  var auftraege = lager('auftraege');
+
+  return {
+    /* Die Auftragszugriffe bleiben direkt erreichbar, das spart Umbau im Bestand. */
+    lesen: auftraege.lesen, alle: auftraege.alle,
+    schreiben: auftraege.schreiben, loeschen: auftraege.loeschen,
+    kunden:  lager('kunden'),
+    nutzbar: function () { return !!window.indexedDB && !kaputt; }
+  };
+})();
 
 /* ===== 10_data.js ===== */
 /* =============================================================================
@@ -1697,7 +1826,9 @@ var App = (function () {
   'use strict';
 
   var VERSION = '2.0';
-  var SCHLUESSEL = 'baumkontrolle.v2';
+  var SCHLUESSEL = 'baumkontrolle.v2';      // alter Einzelplatz, nur noch zur Übernahme
+  var GEMEINSAM  = 'baumkontrolle.gemeinsam'; // Firmendaten, Preise, Artenspeicher
+  var AKTUELL    = 'baumkontrolle.aktuell';   // Kennung des offenen Auftrags
   var PAPIERKORB_TAGE = 30;
 
   /* --- Zustand ------------------------------------------------------------ */
@@ -1711,6 +1842,8 @@ var App = (function () {
   function leererZustand() {
     return {
       version: VERSION,
+      id: '',                     // Kennung des Auftrags in der Ablage
+      kundeId: '',                // zugehöriger Kunde
       auftrag: {
         auftraggeber: '', objekt: '', auftragsNr: '', kontrollart: 'Regelkontrolle',
         datum: heuteISO(), datumBis: '', belaubung: 'belaubt', witterung: 'trocken, bedeckt',
@@ -1768,33 +1901,127 @@ var App = (function () {
 
   /* =========================================================================
    * Speicherung
+   *
+   * Die Aufträge liegen einzeln in IndexedDB, damit mehrere nebeneinander
+   * laufen können und die Fotos nicht mehr an der Grenze von localStorage
+   * scheitern. In localStorage bleibt nur, was klein ist und sofort beim
+   * Start gebraucht wird: Firmendaten, Preisliste, zuletzt genutzte Arten
+   * und die Kennung des offenen Auftrags.
    * ====================================================================== */
-  function sichern() {
-    var text = JSON.stringify(S);
+
+  function neueId() {
+    return 'a' + Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
+  }
+
+  /** Name des Auftrags in der Umschaltliste. */
+  function auftragName(a) {
+    a = a || S.auftrag;
+    return a.objekt || a.auftraggeber || 'Ohne Namen';
+  }
+
+  function satz() {
+    return {
+      id: S.id,
+      kundeId: S.kundeId || '',
+      name: auftragName(),
+      geaendert: new Date().toISOString(),
+      baeume: S.baeume.length,
+      daten: {
+        version: VERSION, auftrag: S.auftrag, baeume: S.baeume,
+        papierkorb: S.papierkorb, seitSicherung: S.seitSicherung,
+        gesichert: S.gesichert
+      }
+    };
+  }
+
+  function gemeinsamSichern() {
     try {
-      localStorage.setItem(SCHLUESSEL, text);
+      localStorage.setItem(GEMEINSAM, JSON.stringify({
+        einstellungen: S.einstellungen,
+        preise: S.preise,
+        artenZuletzt: S.artenZuletzt
+      }));
+      if (S.id) localStorage.setItem(AKTUELL, S.id);
+    } catch (e) { /* voll oder blockiert, das ist hier nicht kritisch */ }
+  }
+
+  function gemeinsamLaden() {
+    try {
+      var g = JSON.parse(localStorage.getItem(GEMEINSAM) || '{}');
+      if (g.einstellungen) S.einstellungen = g.einstellungen;
+      if (g.preise) S.preise = g.preise;
+      if (g.artenZuletzt) S.artenZuletzt = g.artenZuletzt;
+    } catch (e) { /* dann eben Standardwerte */ }
+  }
+
+  function sichern() {
+    gemeinsamSichern();
+    if (!S.id) S.id = neueId();
+    if (!DB.nutzbar()) return notSichern();
+    DB.schreiben(satz(), function (fehler) {
+      if (fehler) notSichern();
+      else speicherFallback = null;
+    });
+    return true;
+  }
+
+  /**
+   * Rückfall, wenn IndexedDB nicht will, etwa im privaten Modus.
+   * Dann gilt wieder die alte Enge, und der Kontrolleur muss es wissen.
+   */
+  function notSichern() {
+    try {
+      localStorage.setItem(SCHLUESSEL, JSON.stringify(S));
       speicherFallback = null;
       return true;
     } catch (e) {
-      /* Speicher voll: älteste Papierkorb-Einträge opfern, nie die laufende Erfassung */
-      var geopfert = 0;
-      while (S.papierkorb.length && geopfert < 50) {
-        S.papierkorb.sort(function (a, b) { return (a.geloescht || '').localeCompare(b.geloescht || ''); });
-        S.papierkorb.shift(); geopfert++;
-        try {
-          localStorage.setItem(SCHLUESSEL, JSON.stringify(S));
-          melde(geopfert + (geopfert === 1 ? ' alter Papierkorb-Eintrag wurde' : ' alte Papierkorb-Einträge wurden') +
-                ' verworfen, um Platz zu schaffen.');
-          return true;
-        } catch (e2) { /* weiter opfern */ }
-      }
       speicherFallback = S;
-      melde('Speicher voll. Bitte jetzt eine Sicherung ablegen.', 'Ausgabe', function () { zeige('ausgabe'); });
+      melde('Speicher voll. Bitte jetzt eine Sicherung ablegen.', 'Sicherung', function () { zeige('einstellungen'); });
       return false;
     }
   }
 
+  /** Einen Auftragssatz in den laufenden Zustand übernehmen. */
+  function satzUebernehmen(rec) {
+    var leer = leererZustand();
+    S.id = rec.id;
+    S.kundeId = rec.kundeId || '';
+    S.auftrag = rec.daten.auftrag || leer.auftrag;
+    S.baeume = rec.daten.baeume || [];
+    S.papierkorb = rec.daten.papierkorb || [];
+    S.seitSicherung = rec.daten.seitSicherung || 0;
+    S.gesichert = rec.daten.gesichert;
+  }
+
+  /**
+   * Beim ersten Start nach der Umstellung liegt der bisherige Auftrag noch
+   * im alten localStorage-Platz. Der wird einmalig übernommen und der alte
+   * Platz geräumt, damit die 4 MB wieder frei sind.
+   */
+  function altenBestandUebernehmen(fertig) {
+    var roh = null;
+    try { roh = localStorage.getItem(SCHLUESSEL); } catch (e) {}
+    if (!roh) return fertig(null);
+    var d;
+    try { d = JSON.parse(roh); } catch (e) { return fertig(null); }
+    if (!d || !d.baeume) return fertig(null);
+
+    var rec = {
+      id: neueId(), name: d.auftrag && (d.auftrag.objekt || d.auftrag.auftraggeber) || 'Übernommen',
+      geaendert: new Date().toISOString(), baeume: d.baeume.length,
+      daten: { version: VERSION, auftrag: d.auftrag, baeume: d.baeume,
+               papierkorb: d.papierkorb || [], seitSicherung: d.seitSicherung || 0,
+               gesichert: d.gesichert }
+    };
+    DB.schreiben(rec, function (fehler) {
+      if (fehler) return fertig(null);
+      try { localStorage.removeItem(SCHLUESSEL); } catch (e) {}
+      fertig(rec);
+    });
+  }
+
   function laden() {
+    /* nur noch der Rückfallweg, wenn IndexedDB nicht zur Verfügung steht */
     try {
       var roh = localStorage.getItem(SCHLUESSEL);
       if (!roh) return;
@@ -1808,6 +2035,282 @@ var App = (function () {
     } catch (e) {
       melde('Gespeicherte Daten konnten nicht gelesen werden.');
     }
+  }
+
+  /* =========================================================================
+   * Mehrere Aufträge nebeneinander
+   *
+   * Der Kontrolleur hat an einem Tag oft zwei Objekte offen. Bisher hielt die
+   * App genau einen Auftrag; für den zweiten musste man sichern, zurücksetzen
+   * und am Ende beides wieder zusammensuchen. Jetzt liegen sie nebeneinander
+   * und man schaltet um.
+   * ====================================================================== */
+
+  function auftragStarten() {
+    if (!DB.nutzbar()) { laden(); auftragFertig(); return; }
+
+    var gewuenscht = '';
+    try { gewuenscht = localStorage.getItem(AKTUELL) || ''; } catch (e) {}
+
+    DB.alle(function (fehler, liste) {
+      if (fehler) { laden(); auftragFertig(); return; }
+      liste = liste || [];
+
+      if (!liste.length) {
+        return altenBestandUebernehmen(function (rec) {
+          if (rec) satzUebernehmen(rec);
+          auftragFertig();
+        });
+      }
+      kundenUebernehmen(liste, function () {});
+      var rec = null;
+      liste.forEach(function (r) { if (r.id === gewuenscht) rec = r; });
+      if (!rec) {
+        liste.sort(function (a, b) { return (b.geaendert || '').localeCompare(a.geaendert || ''); });
+        rec = liste[0];
+      }
+      satzUebernehmen(rec);
+      auftragFertig();
+    });
+  }
+
+  function auftragFertig() {
+    if (!S.id) S.id = neueId();
+    papierkorbAufraeumen();
+    auftragSchreiben();
+    richtungZeigen();
+    objektGpsAnzeige();
+    zeichneAuftragKurz();
+    zeichneListe();
+    gemeinsamSichern();
+  }
+
+  /** Umschaltliste. Zeigt jeden Auftrag mit Objekt, Bäumen und Datum. */
+  function auftragWechsel() {
+    blendeAuf('Aufträge', '<div class="hinweis">Wird geladen …</div>');
+    if (ansicht === 'baum') baumLesen();
+    sichern();
+    DB.alle(function (fehler, liste) {
+      if (fehler || !liste) {
+        el('blendeInhalt').innerHTML =
+          '<div class="fehlkasten">Die Auftragsablage ist auf diesem Gerät nicht verfügbar. ' +
+          'Es bleibt bei einem Auftrag.</div>';
+        return;
+      }
+      liste.sort(function (a, b) { return (b.geaendert || '').localeCompare(a.geaendert || ''); });
+      el('blendeInhalt').innerHTML = liste.map(function (r) {
+        var offen = r.id === S.id;
+        return '<button class="wahl' + (offen ? ' an' : '') + '" onclick="App.auftragOeffnen(' +
+          esc(JSON.stringify(r.id)) + ')"><b>' + esc(r.name || 'Ohne Namen') +
+          (offen ? ' · offen' : '') + '</b><span>' +
+          (r.baeume || 0) + (r.baeume === 1 ? ' Baum' : ' Bäume') +
+          ' · zuletzt ' + esc(deDatum((r.geaendert || '').slice(0, 10))) + '</span></button>';
+      }).join('') +
+      '<div class="trenner"></div>' +
+      '<button class="btn" onclick="App.auftragNeu()">+ Neuer Auftrag</button>' +
+      (liste.length > 1
+        ? '<button class="btn zweit" onclick="App.auftragWegFrage()">Diesen Auftrag löschen</button>'
+        : '');
+    });
+  }
+
+  function auftragOeffnen(id) {
+    if (id === S.id) return blendeZu();
+    DB.lesen(id, function (fehler, rec) {
+      if (fehler || !rec) return melde('Der Auftrag lässt sich nicht öffnen.');
+      satzUebernehmen(rec);
+      aktuellerBaum = null;
+      gemeinsamSichern();
+      blendeZu();
+      auftragFertig();
+      zeige('liste');
+      melde('Offen: ' + auftragName());
+    });
+  }
+
+  function auftragNeu(kundeId) {
+    var leer = leererZustand();
+    S.id = neueId();
+    S.auftrag = leer.auftrag;
+    S.baeume = [];
+    S.papierkorb = [];
+    S.seitSicherung = 0;
+    S.gesichert = null;
+    S.kundeId = kundeId || '';
+    aktuellerBaum = null;
+    sichern();
+    blendeZu();
+    auftragFertig();
+    zeige('auftrag');
+    melde('Neuer Auftrag. Die Firmendaten und die Preisliste gelten weiter.');
+  }
+
+  function auftragWegFrage() {
+    blendeAuf('Auftrag löschen', '<div class="warnkasten">„' + esc(auftragName()) +
+      '" mit ' + S.baeume.length + (S.baeume.length === 1 ? ' Baum' : ' Bäumen') +
+      ' wird endgültig gelöscht. Das lässt sich nicht rückgängig machen. ' +
+      'Lege vorher eine Sicherung ab, wenn du die Daten noch brauchst.</div>' +
+      '<button class="btn rot" onclick="App.auftragWeg()">Endgültig löschen</button>' +
+      '<button class="btn zweit" onclick="App.blendeZu()">Abbrechen</button>');
+  }
+
+  function auftragWeg() {
+    var weg = S.id;
+    DB.loeschen(weg, function () {
+      DB.alle(function (fehler, liste) {
+        liste = (liste || []).filter(function (r) { return r.id !== weg; });
+        if (liste.length) {
+          liste.sort(function (a, b) { return (b.geaendert || '').localeCompare(a.geaendert || ''); });
+          satzUebernehmen(liste[0]);
+        } else {
+          var leer = leererZustand();
+          S.id = neueId(); S.auftrag = leer.auftrag; S.baeume = [];
+          S.papierkorb = []; S.seitSicherung = 0; S.gesichert = null;
+        }
+        aktuellerBaum = null;
+        gemeinsamSichern();
+        blendeZu();
+        auftragFertig();
+        zeige('liste');
+        melde('Auftrag gelöscht.');
+      });
+    });
+  }
+
+  /* =========================================================================
+   * Kunden
+   *
+   * Flach gehalten: ein Kunde, darunter seine Kontrollen. Keine Objekte als
+   * eigene Ebene, denn eine Kontrolle gilt immer einem Grundstück. Für große
+   * Liegenschaften mit Kartenpflege ist ohnehin ImmoSpector Tree vorgesehen.
+   * ====================================================================== */
+
+  var kundenZwischen = [];      // zuletzt gelesene Kundenliste, für die Anzeige
+
+  function kundenLesen(fertig) {
+    if (!DB.nutzbar()) return fertig([]);
+    DB.kunden.alle(function (fehler, liste) {
+      kundenZwischen = (fehler || !liste) ? [] : liste;
+      kundenZwischen.sort(function (a, b) {
+        return (a.name || '').localeCompare(b.name || '', 'de');
+      });
+      fertig(kundenZwischen);
+    });
+  }
+
+  function zeichneKunden() {
+    kundenLesen(function (kunden) {
+      DB.alle(function (f2, auftraege) {
+        auftraege = auftraege || [];
+        var zahl = {};
+        auftraege.forEach(function (a) {
+          if (a.kundeId) zahl[a.kundeId] = (zahl[a.kundeId] || 0) + 1;
+        });
+        el('kundenZahl').textContent = kunden.length ? '(' + kunden.length + ')' : '';
+        el('kundenListe').innerHTML = kunden.length
+          ? kunden.map(function (k) {
+              var n = zahl[k.id] || 0;
+              return '<div class="baumzeile z-grau" onclick="App.kundeOeffnen(' +
+                esc(JSON.stringify(k.id)) + ')">' +
+                '<div class="txt"><b>' + esc(k.name) + '</b><span>' +
+                esc([k.anschrift, n ? n + (n === 1 ? ' Kontrolle' : ' Kontrollen') : 'noch keine Kontrolle']
+                    .filter(Boolean).join(' · ')) + '</span></div></div>';
+            }).join('')
+          : '<div class="leer"><div class="zeichen">&#9635;</div>Noch kein Kunde angelegt.</div>';
+      });
+    });
+  }
+
+  function kundeNeu(id) {
+    var k = id ? kundenZwischen.filter(function (x) { return x.id === id; })[0] : null;
+    k = k || { id: '', name: '', anschrift: '', kontakt: '', notiz: '' };
+    blendeAuf(id ? 'Kunde bearbeiten' : 'Kunde anlegen',
+      '<div class="feld"><label>Name oder Firma</label>' +
+      '<input id="k_name" value="' + esc(k.name) + '"></div>' +
+      '<div class="feld"><label>Anschrift</label>' +
+      '<input id="k_anschrift" value="' + esc(k.anschrift) + '" placeholder="Straße, PLZ Ort"></div>' +
+      '<div class="feld"><label>Kontakt</label>' +
+      '<input id="k_kontakt" value="' + esc(k.kontakt) + '" placeholder="Telefon oder E-Mail"></div>' +
+      '<div class="feld"><label>Notiz</label>' +
+      '<textarea id="k_notiz">' + esc(k.notiz) + '</textarea></div>' +
+      '<button class="btn" onclick="App.kundeSpeichern(' + esc(JSON.stringify(k.id)) + ')">Speichern</button>');
+    setTimeout(function () { var f = el('k_name'); if (f) f.focus(); }, 150);
+  }
+
+  function kundeSpeichern(id) {
+    var name = (feldWert('k_name') || '').trim();
+    if (!name) return melde('Ohne Namen geht es nicht.');
+    var k = {
+      id: id || neueId(),
+      name: name,
+      anschrift: (feldWert('k_anschrift') || '').trim(),
+      kontakt: (feldWert('k_kontakt') || '').trim(),
+      notiz: (feldWert('k_notiz') || '').trim(),
+      angelegt: id ? undefined : new Date().toISOString()
+    };
+    DB.kunden.schreiben(k, function (fehler) {
+      if (fehler) return melde('Der Kunde ließ sich nicht speichern.');
+      blendeZu();
+      zeichneKunden();
+      melde(id ? 'Kunde geändert.' : 'Kunde angelegt.');
+    });
+  }
+
+  /** Kunde mit seinen Kontrollen. Von hier aus wird eine Kontrolle geöffnet. */
+  function kundeOeffnen(id) {
+    var k = kundenZwischen.filter(function (x) { return x.id === id; })[0];
+    if (!k) return;
+    DB.alle(function (fehler, auftraege) {
+      var meine = (auftraege || []).filter(function (a) { return a.kundeId === id; });
+      meine.sort(function (a, b) { return (b.geaendert || '').localeCompare(a.geaendert || ''); });
+      blendeAuf(k.name,
+        (k.anschrift || k.kontakt
+          ? '<div class="hinweis" style="margin-bottom:12px">' +
+            esc([k.anschrift, k.kontakt].filter(Boolean).join(' · ')) + '</div>' : '') +
+        (meine.length
+          ? meine.map(function (a) {
+              return '<button class="wahl' + (a.id === S.id ? ' an' : '') +
+                '" onclick="App.auftragOeffnen(' + esc(JSON.stringify(a.id)) + ')"><b>' +
+                esc(a.name || 'Ohne Namen') + (a.id === S.id ? ' · offen' : '') +
+                '</b><span>' + (a.baeume || 0) + (a.baeume === 1 ? ' Baum' : ' Bäume') +
+                ' · ' + esc(deDatum((a.geaendert || '').slice(0, 10))) + '</span></button>';
+            }).join('')
+          : '<div class="hinweis">Noch keine Kontrolle für diesen Kunden.</div>') +
+        '<div class="trenner"></div>' +
+        '<button class="btn" onclick="App.auftragNeu(' + esc(JSON.stringify(id)) + ')">+ Kontrolle für diesen Kunden</button>' +
+        '<button class="btn zweit" onclick="App.kundeNeu(' + esc(JSON.stringify(id)) + ')">Kundendaten bearbeiten</button>');
+    });
+  }
+
+  /**
+   * Bestehende Aufträge kennen nur den Freitext „Auftraggeber". Daraus wird
+   * einmalig je eindeutigem Namen ein Kunde gebaut und verknüpft.
+   */
+  function kundenUebernehmen(auftraege, fertig) {
+    var ohne = auftraege.filter(function (a) {
+      return !a.kundeId && a.daten && a.daten.auftrag && a.daten.auftrag.auftraggeber;
+    });
+    if (!ohne.length) return fertig();
+
+    kundenLesen(function (kunden) {
+      var nachName = {};
+      kunden.forEach(function (k) { nachName[k.name.toLowerCase()] = k; });
+      var offen = ohne.length;
+      function fertigEiner() { if (--offen === 0) fertig(); }
+
+      ohne.forEach(function (a) {
+        var name = a.daten.auftrag.auftraggeber.trim(),
+            k = nachName[name.toLowerCase()];
+        if (!k) {
+          k = { id: neueId(), name: name, anschrift: '', kontakt: '', notiz: '',
+                angelegt: new Date().toISOString() };
+          nachName[name.toLowerCase()] = k;
+          DB.kunden.schreiben(k);
+        }
+        a.kundeId = k.id;
+        DB.schreiben(a, fertigEiner);
+      });
+    });
   }
 
   /** Verfallene Papierkorb-Einträge beim Start entfernen. */
@@ -1851,7 +2354,15 @@ var App = (function () {
    * ====================================================================== */
   var TITEL = {
     liste: 'Baumkontrolle', auftrag: 'Auftrag', baum: 'Baum',
-    ausgabe: 'Ausgabe', einstellungen: 'Einstellungen'
+    ergebnisse: 'Ergebnisse', angebote: 'Angebote', kunden: 'Kunden',
+    kunde: 'Kunde', einstellungen: 'Einstellungen'
+  };
+
+  /* Welcher Reiter oben leuchtet, wenn eine Ansicht offen ist. */
+  var REITER = {
+    liste: 'rtKontrolle', auftrag: 'rtKontrolle', baum: 'rtKontrolle',
+    ergebnisse: 'rtKontrolle', angebote: 'rtAngebote',
+    kunden: 'rtKunden', kunde: 'rtKunden'
   };
 
   function zeige(name, ohneHistorie) {
@@ -1863,22 +2374,26 @@ var App = (function () {
 
     document.getElementById('titel').textContent =
       name === 'baum' ? ('Baum ' + (feldWert('b_nr') || '')) : TITEL[name];
-    document.getElementById('btnZurueck').style.display = name === 'liste' ? 'none' : '';
+    /* Zurück gibt es nur in Unteransichten. Die drei Reiter sind gleichrangig,
+       dort wäre ein Zurück-Knopf irreführend. */
+    var reiterAnsicht = (name === 'liste' || name === 'angebote' || name === 'kunden');
+    document.getElementById('btnZurueck').style.display = reiterAnsicht ? 'none' : '';
     var akt = document.getElementById('btnAktion');
     akt.style.display = name === 'baum' ? '' : 'none';
 
     if (name === 'liste')         { zeichneListe(); zeichneAuftragKurz(); }
-    if (name === 'ausgabe')       zeichneAusgabe();
+    if (name === 'ergebnisse' || name === 'angebote') zeichneAusgabe();
+    if (name === 'kunden')        zeichneKunden();
     if (name === 'einstellungen') { zeichneEinstellungen(); zeichnePapierkorb(); }
 
-    /* Reiter unten: im Baum-Detail und im Auftrag ausblenden, dort sitzen
-       die Speichern-Knöpfe am Seitenende. */
-    var mitTabs = (name === 'liste' || name === 'ausgabe' || name === 'einstellungen');
-    el('tabs').className = 'tabs' + (mitTabs ? '' : ' aus');
-    document.body.className = mitTabs ? '' : 'ohnetabs';
-    ['Liste', 'Ausgabe', 'Einstellungen'].forEach(function (t) {
-      var k = el('tab' + t);
-      if (k) k.className = (name === t.toLowerCase()) ? 'aktiv' : '';
+    /* Reiterleiste im Baum-Detail und im Auftrag ausblenden, dort sitzen die
+       Speichern-Knöpfe am Seitenende und der Platz wird gebraucht. */
+    var mitReitern = !(name === 'baum' || name === 'auftrag');
+    el('reiter').className = 'reiter' + (mitReitern ? '' : ' aus');
+    el('btnZahnrad').style.display = mitReitern ? '' : 'none';
+    ['rtKontrolle', 'rtAngebote', 'rtKunden'].forEach(function (id) {
+      var k = el(id);
+      if (k) k.className = (REITER[name] === id) ? 'aktiv' : '';
     });
 
     window.scrollTo(0, 0);
@@ -2009,18 +2524,32 @@ var App = (function () {
     box.innerHTML = S.baeume.map(function (b, i) {
       var mn = b.massnahmen || [],
           stufe = mn.length ? Math.min.apply(null, mn.map(function (m) { return m.stufe || 5; })) : null,
-          punkt = stufe === 1 || stufe === 2 ? 'p-rot' : (mn.length ? 'p-grau' : 'p-gruen'),
-          zeile2 = [b.artDt, b.hoehe ? b.hoehe + ' m' : '', b.zustand,
-                    mn.length ? mn.length + (mn.length === 1 ? ' Maßnahme' : ' Maßnahmen') : ''
-                   ].filter(Boolean).join(' · ');
-      return '<div class="baumzeile" id="bz' + i + '">' +
+          /* Die Farbe der Zeile zeigt den Zustand, nicht die Maßnahmen. Beim
+             Durchscrollen soll man den Bestand sehen, nicht die Arbeitsliste. */
+          ampel = b.zustand === 'stärker geschädigt' ? 'z-rot'
+                : (b.zustand === 'leicht geschädigt' ? 'z-gelb'
+                : (b.zustand === 'gesund' ? 'z-gruen' : 'z-grau')),
+          fakten = [b.hoehe ? b.hoehe + ' m' : '',
+                    b.stammumfang ? b.stammumfang + ' cm' : '',
+                    b.lage || b.hausNr || ''].filter(Boolean).join(' · ');
+      return '<div class="baumzeile ' + ampel + '" id="bz' + i + '">' +
         '<div class="nr">' + esc(b.nr || (i + 1)) + '</div>' +
-        '<div class="punkt ' + punkt + '"></div>' +
         '<div class="txt" onclick="App.baumOeffnen(' + i + ')">' +
           '<b>' + esc(b.artDt || 'Ohne Art') + '</b>' +
-          '<span>' + esc(zeile2 || 'noch nicht bewertet') + '</span></div>' +
+          '<span>' + esc(fakten || 'noch nichts gemessen') + '</span></div>' +
+        '<div class="marken">' +
+          (b.zustand ? '<span class="zmark">' + esc(kurzZustand(b.zustand)) + '</span>' : '') +
+          (stufe ? '<span class="dring d' + stufe + '">' + esc(DATA.DRINGLICHKEIT[stufe].kurz) + '</span>' : '') +
+        '</div>' +
         '<button class="weg" onclick="App.loeschFrage(' + i + ')">&#128465;</button></div>';
     }).join('');
+  }
+
+  /** „stärker geschädigt" passt nicht in eine Marke, „stärker" schon. */
+  function kurzZustand(z) {
+    if (z === 'stärker geschädigt') return 'stärker gesch.';
+    if (z === 'leicht geschädigt') return 'leicht gesch.';
+    return z;
   }
 
   /** Inline-Abfrage statt Systemdialog. */
@@ -2101,7 +2630,6 @@ var App = (function () {
       setzeFeld('b_' + k, b[k]);
     });
     if (!b.lage && b.strasse) setzeFeld('b_lage', b.strasse);   /* aus früheren Fassungen */
-    artChips();
     artStand();
     artZu();
 
@@ -2228,7 +2756,7 @@ var App = (function () {
       box.innerHTML = '<div class="nix">Keine Art gefunden. „' + esc(text) +
                       '" wird als Freitext übernommen.</div>';
     } else {
-      box.innerHTML = (text ? '' : '<div class="kopf">Alle Arten A–Z</div>') +
+      box.innerHTML = (text ? '' : zuletztBlock() + '<div class="kopf">Alle Arten A–Z</div>') +
         treffer.map(function (a) {
           return '<button type="button" onclick="App.artSetzen(' + a.i + ')"><b>' +
                  esc(a.dt) + '</b><span>' + esc(a.bot) + '</span></button>';
@@ -2236,6 +2764,30 @@ var App = (function () {
     }
     box.hidden = false;
     artHoehe();
+  }
+
+  /**
+   * Die zuletzt aufgenommenen Arten, ganz oben in der Vorschlagsliste.
+   * In einem Garten wiederholen sich die Arten, das spart bei jedem zweiten
+   * Baum die Tipperei. Früher stand das als Knopfreihe dauerhaft über dem
+   * Feld und hat nur Platz gekostet; jetzt erscheint es mit der Liste.
+   */
+  function zuletztBlock() {
+    var gesehen = {}, liste = [];
+    function rein(dt) {
+      var k = DATA.artNorm(dt);
+      if (!k || gesehen[k] || liste.length >= 6) return;
+      gesehen[k] = 1;
+      liste.push(dt);
+    }
+    for (var i = S.baeume.length - 1; i >= 0; i--) rein(S.baeume[i].artDt);
+    (S.artenZuletzt || []).forEach(rein);
+    if (!liste.length) return '';
+    return '<div class="kopf">Zuletzt aufgenommen</div>' + liste.map(function (dt) {
+      var g = DATA.artGenau(dt);
+      return '<button type="button" onclick="App.artChip(' + esc(JSON.stringify(dt)) +
+             ')"><b>' + esc(dt) + '</b><span>' + esc(g ? g.bot : 'Freitext') + '</span></button>';
+    }).join('');
   }
 
   function artInsBild() {
@@ -2288,26 +2840,6 @@ var App = (function () {
       artStand();
       artZu();
     }, 150);
-  }
-
-  /**
-   * Schnellwahl über dem Feld. In einem Garten wiederholen sich die Arten;
-   * die zuletzt aufgenommenen zuerst, danach die aus früheren Aufträgen.
-   */
-  function artChips() {
-    var gesehen = {}, liste = [];
-    function rein(dt) {
-      var k = DATA.artNorm(dt);
-      if (!k || gesehen[k] || liste.length >= 8) return;
-      gesehen[k] = 1;
-      liste.push(dt);
-    }
-    for (var i = S.baeume.length - 1; i >= 0; i--) rein(S.baeume[i].artDt);
-    (S.artenZuletzt || []).forEach(rein);
-    el('artChips').innerHTML = liste.map(function (dt) {
-      return '<button type="button" onclick="App.artChip(' + esc(JSON.stringify(dt)) +
-             ')">' + esc(dt) + '</button>';
-    }).join('');
   }
 
   function artMerken(dt) {
@@ -3434,8 +3966,7 @@ var App = (function () {
    * Start
    * ====================================================================== */
   function start() {
-    laden();
-    papierkorbAufraeumen();
+    gemeinsamLaden();
 
     fuelleSelect('a_qualifikation', DATA.QUALIFIKATIONEN.concat(['sonstige']));
     fuelleSelect('a_kontrollart', DATA.KONTROLLART);
@@ -3449,11 +3980,9 @@ var App = (function () {
     fuelleSelect('b_intervall', ['halbjährlich', 'jährlich', '2 Jahre', '3 Jahre',
                                  'keine gesonderte RK']);
 
-    auftragSchreiben();
-    richtungZeigen();
-    objektGpsAnzeige();
-    zeichneAuftragKurz();
-    zeichneListe();
+    /* Die Aufträge liegen in IndexedDB, das Lesen läuft asynchron.
+       Erst danach steht fest, was gezeichnet wird. */
+    auftragStarten();
 
     /* Tastatur auf oder zu: die Vorschlagsliste neu einpassen. */
     if (window.visualViewport) {
@@ -3546,6 +4075,10 @@ var App = (function () {
     angebot: angebot, auftragswert: auftragswert, posten: posten,
     sevKopieren: sevKopieren, sevCsv: sevCsv, sevProdukte: sevProdukte,
     sevPositionen: sevPositionen, sevText: sevText, zeichneAusgabe: zeichneAusgabe,
+    zeichneKunden: zeichneKunden, kundeNeu: kundeNeu, kundeSpeichern: kundeSpeichern,
+    kundeOeffnen: kundeOeffnen,
+    auftragWechsel: auftragWechsel, auftragOeffnen: auftragOeffnen, auftragNeu: auftragNeu,
+    auftragWegFrage: auftragWegFrage, auftragWeg: auftragWeg,
     sicherungExport: sicherungExport, importAusfuehren: importAusfuehren,
     einstellungenSpeichern: einstellungenSpeichern,
     papierkorbZurueck: papierkorbZurueck, papierkorbLeeren: papierkorbLeeren,
