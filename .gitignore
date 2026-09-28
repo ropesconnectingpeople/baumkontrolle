@@ -1,0 +1,18 @@
+node_modules/
+.DS_Store
+*.log
+
+# Testausgaben. Werden bei jedem Lauf neu erzeugt.
+testausgabe/
+
+# Build-Artefakte und Pakete, gehoeren nicht ins Repo
+*.zip
+
+# Kundendaten. Dieses Repo ist oeffentlich, weil GitHub Pages aus privaten
+# Repos einen bezahlten Plan braucht. Kontrollen enthalten Namen, Anschriften,
+# GPS-Koordinaten und Fotos fremder Grundstuecke und duerfen hier nie landen.
+korrektur/
+*.json
+!package.json
+!package-lock.json
+!manifest.webmanifest
