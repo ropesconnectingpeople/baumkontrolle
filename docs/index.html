@@ -4391,15 +4391,26 @@ var App = (function () {
       d.auftrag.berichtsdatum = heuteISO();
       d.auftrag.auftragsNr = '';
     }
-    S = d;
-    if (!S.papierkorb) S.papierkorb = [];
-    if (!S.einstellungen) S.einstellungen = leererZustand().einstellungen;
+    /* Der offene Auftrag wird erst abgelegt, dann kommt die Sicherung als
+     * eigener Auftrag daneben. Eine Sicherung trägt die Kennung des Auftrags,
+     * aus dem sie stammt; mit der übernommen, überschrieb sie genau den, und
+     * wer im Feld eine alte Kontrolle nachschlug, verlor den laufenden.
+     * Firmendaten und Artenschnellwahl gehören dem Gerät, nicht der Sicherung. */
+    if (ansicht === 'baum') baumLesen();
+    sichern();
+    satzUebernehmen({
+      id: neueId(),
+      kundeId: d.kundeId,
+      daten: {
+        auftrag: d.auftrag, baeume: d.baeume, papierkorb: d.papierkorb,
+        seitSicherung: 0, gesichert: alsFolge ? null : d.gesichert
+      }
+    });
     App._import = null;
+    aktuellerBaum = null;
     sichern();
     blendeZu();
-    auftragSchreiben();
-    richtungZeigen();
-    objektGpsAnzeige();
+    auftragFertig();
     zeige('liste');
     melde(alsFolge ? 'Folgekontrolle angelegt. Alle Bäume übernommen.' : 'Sicherung geladen.');
   }

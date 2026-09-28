@@ -4,7 +4,7 @@ set -e
 python3 build.py
 python3 pwa.py
 fehler=0
-for t in test.js test_art.js test_fotos.js test_auftraege.js test_menge.js test_karte.js test_pwa.js; do
+for t in test.js test_art.js test_fotos.js test_auftraege.js test_menge.js test_karte.js test_pwa.js test_sicherung.js; do
   printf '%-20s ' "$t"
   if node "$t" >/dev/null 2>&1; then
     echo "gruen"
