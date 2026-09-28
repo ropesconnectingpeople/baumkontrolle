@@ -188,75 +188,7 @@ var XLS = (function () {
     return isNaN(n) ? (v || '') : n;
   }
 
-  /* =========================================================================
-   * Kalkulation
-   * ====================================================================== */
-  function kalkulation(daten, preise, einst) {
-    var a = daten.auftrag, baeume = daten.baeume,
-        mappe = XLSX.utils.book_new(),
-        ust = (einst && einst.ust) || 19;
-
-    var posten = [];
-    baeume.forEach(function (b) {
-      (b.massnahmen || []).forEach(function (m) {
-        var kl = DATA.hoehenklasse(b.hoehe),
-            reihe = preise[m.text],
-            preis = reihe ? (reihe[kl] || 0) : 0;
-        posten.push({
-          nr: b.nr, art: b.artDt, hoehe: b.hoehe, klasse: DATA.HOEHENKLASSEN[kl],
-          text: m.text, stufe: m.stufe, frist: m.frist, preis: preis
-        });
-      });
-    });
-
-    var netto = posten.reduce(function (s, p) { return s + p.preis; }, 0);
-
-    /* --- Einzelaufstellung --- */
-    var z = [['Baum-Nr.', 'Baumart', 'Höhe (m)', 'Höhenklasse', 'Leistung', 'Dringlichkeit',
-              'Frist', 'Einzelpreis netto (€)']];
-    posten.forEach(function (p) {
-      z.push([p.nr, p.art, num(p.hoehe), p.klasse, p.text, DRING[p.stufe] || '', p.frist, p.preis]);
-    });
-    z.push([]);
-    z.push(['', '', '', '', '', '', 'Summe netto', netto]);
-    z.push(['', '', '', '', '', '', 'zzgl. ' + ust + ' % USt.', Math.round(netto * ust) / 100]);
-    z.push(['', '', '', '', '', '', 'Summe brutto', Math.round(netto * (100 + ust)) / 100]);
-    blatt(mappe, 'Einzelaufstellung', z, [9, 20, 10, 14, 38, 26, 18, 20]);
-
-    /* --- Zusammenfassung nach Dringlichkeit --- */
-    var nachStufe = [['Dringlichkeit', 'Anzahl Leistungen', 'Betrag netto (€)']];
-    [1, 2, 3, 4, 5].forEach(function (st) {
-      var g = posten.filter(function (p) { return p.stufe === st; });
-      if (g.length) nachStufe.push([DRING[st], g.length,
-        g.reduce(function (s, p) { return s + p.preis; }, 0)]);
-    });
-    nachStufe.push([]);
-    nachStufe.push(['Summe netto', posten.length, netto]);
-    nachStufe.push([]);
-    nachStufe.push(['Nach Leistung']);
-    nachStufe.push(['Leistung', 'Anzahl', 'Betrag netto (€)']);
-    var nachLeistung = {};
-    posten.forEach(function (p) {
-      if (!nachLeistung[p.text]) nachLeistung[p.text] = { n: 0, s: 0 };
-      nachLeistung[p.text].n++;
-      nachLeistung[p.text].s += p.preis;
-    });
-    Object.keys(nachLeistung).sort(function (x, y) { return nachLeistung[y].s - nachLeistung[x].s; })
-      .forEach(function (k) { nachStufe.push([k, nachLeistung[k].n, nachLeistung[k].s]); });
-    blatt(mappe, 'Zusammenfassung', nachStufe, [38, 18, 20]);
-
-    /* --- Preisliste zur Nachvollziehbarkeit --- */
-    var pl = [['Leistung'].concat(DATA.HOEHENKLASSEN)];
-    Object.keys(preise).forEach(function (k) { pl.push([k].concat(preise[k])); });
-    pl.push([]);
-    pl.push(['Stand', a.datum]);
-    pl.push(['Alle Preise netto in Euro je Baum.']);
-    blatt(mappe, 'Preisliste', pl, [40, 13, 13, 13, 13]);
-
-    XLSX.writeFile(mappe, dateiname(a, 'Kalkulation'));
-  }
-
-  return { bestand: bestand, kalkulation: kalkulation };
+  return { bestand: bestand };
 })();
 
 </script>

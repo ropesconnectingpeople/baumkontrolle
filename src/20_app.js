@@ -6,9 +6,9 @@
 var App = (function () {
   'use strict';
 
-  var VERSION = '2.0';
+  var VERSION = '3.0';
   var SCHLUESSEL = 'baumkontrolle.v2';      // alter Einzelplatz, nur noch zur Übernahme
-  var GEMEINSAM  = 'baumkontrolle.gemeinsam'; // Firmendaten, Preise, Artenspeicher
+  var GEMEINSAM  = 'baumkontrolle.gemeinsam'; // Firmendaten, zuletzt genutzte Arten
   var AKTUELL    = 'baumkontrolle.aktuell';   // Kennung des offenen Auftrags
   var PAPIERKORB_TAGE = 30;
 
@@ -39,10 +39,9 @@ var App = (function () {
       einstellungen: {
         name: 'Baumpflege Hundertmark',
         zusatz: 'Fachbetrieb für Baumpflege · Baumkontrolle · Verkehrssicherheit',
-        anschrift: '', kontakt: '', ust: 19, stundensatz: 85,
+        anschrift: '', kontakt: '',
         mehrBaum: false, mehrOrt: false
       },
-      preise: null,               // null = Standardpreise aus DATA
       seitSicherung: 0            // Bäume seit der letzten abgelegten Sicherung
     };
   }
@@ -86,7 +85,7 @@ var App = (function () {
    * Die Aufträge liegen einzeln in IndexedDB, damit mehrere nebeneinander
    * laufen können und die Fotos nicht mehr an der Grenze von localStorage
    * scheitern. In localStorage bleibt nur, was klein ist und sofort beim
-   * Start gebraucht wird: Firmendaten, Preisliste, zuletzt genutzte Arten
+   * Start gebraucht wird: Firmendaten und zuletzt genutzte Arten
    * und die Kennung des offenen Auftrags.
    * ====================================================================== */
 
@@ -119,7 +118,6 @@ var App = (function () {
     try {
       localStorage.setItem(GEMEINSAM, JSON.stringify({
         einstellungen: S.einstellungen,
-        preise: S.preise,
         artenZuletzt: S.artenZuletzt
       }));
       if (S.id) localStorage.setItem(AKTUELL, S.id);
@@ -130,7 +128,6 @@ var App = (function () {
     try {
       var g = JSON.parse(localStorage.getItem(GEMEINSAM) || '{}');
       if (g.einstellungen) S.einstellungen = g.einstellungen;
-      if (g.preise) S.preise = g.preise;
       if (g.artenZuletzt) S.artenZuletzt = g.artenZuletzt;
     } catch (e) { /* dann eben Standardwerte */ }
   }
@@ -262,6 +259,8 @@ var App = (function () {
     richtungZeigen();
     objektGpsAnzeige();
     zeichneAuftragKurz();
+    /* Neues Objekt, neuer Ausschnitt. Sonst zeigt die Karte den alten Park. */
+    if (window.Karte) Karte.zuruecksetzen();
     zeichneListe();
     gemeinsamSichern();
   }
@@ -323,7 +322,7 @@ var App = (function () {
     blendeZu();
     auftragFertig();
     zeige('auftrag');
-    melde('Neuer Auftrag. Die Firmendaten und die Preisliste gelten weiter.');
+    melde('Neuer Auftrag. Die Firmendaten gelten weiter.');
   }
 
   function auftragWegFrage() {
@@ -535,14 +534,14 @@ var App = (function () {
    * ====================================================================== */
   var TITEL = {
     liste: 'Baumkontrolle', auftrag: 'Auftrag', baum: 'Baum',
-    ergebnisse: 'Ergebnisse', angebote: 'Angebote', kunden: 'Kunden',
+    ergebnisse: 'Ergebnisse', kunden: 'Kunden',
     kunde: 'Kunde', einstellungen: 'Einstellungen'
   };
 
   /* Welcher Reiter oben leuchtet, wenn eine Ansicht offen ist. */
   var REITER = {
     liste: 'rtKontrolle', auftrag: 'rtKontrolle', baum: 'rtKontrolle',
-    ergebnisse: 'rtKontrolle', angebote: 'rtAngebote',
+    ergebnisse: 'rtKontrolle',
     kunden: 'rtKunden', kunde: 'rtKunden'
   };
 
@@ -557,13 +556,13 @@ var App = (function () {
       name === 'baum' ? ('Baum ' + (feldWert('b_nr') || '')) : TITEL[name];
     /* Zurück gibt es nur in Unteransichten. Die drei Reiter sind gleichrangig,
        dort wäre ein Zurück-Knopf irreführend. */
-    var reiterAnsicht = (name === 'liste' || name === 'angebote' || name === 'kunden');
+    var reiterAnsicht = (name === 'liste' || name === 'kunden');
     document.getElementById('btnZurueck').style.display = reiterAnsicht ? 'none' : '';
     var akt = document.getElementById('btnAktion');
     akt.style.display = name === 'baum' ? '' : 'none';
 
-    if (name === 'liste')         { zeichneListe(); zeichneAuftragKurz(); }
-    if (name === 'ergebnisse' || name === 'angebote') zeichneAusgabe();
+    if (name === 'liste')         { zeichneListe(); zeichneAuftragKurz(); karteAuffrischen(); }
+    if (name === 'ergebnisse') zeichneAusgabe();
     if (name === 'kunden')        zeichneKunden();
     if (name === 'einstellungen') { zeichneEinstellungen(); zeichnePapierkorb(); }
 
@@ -572,7 +571,7 @@ var App = (function () {
     var mitReitern = !(name === 'baum' || name === 'auftrag');
     el('reiter').className = 'reiter' + (mitReitern ? '' : ' aus');
     el('btnZahnrad').style.display = mitReitern ? '' : 'none';
-    ['rtKontrolle', 'rtAngebote', 'rtKunden'].forEach(function (id) {
+    ['rtKontrolle', 'rtKunden'].forEach(function (id) {
       var k = el(id);
       if (k) k.className = (REITER[name] === id) ? 'aktiv' : '';
     });
@@ -713,8 +712,12 @@ var App = (function () {
           fakten = [b.hoehe ? b.hoehe + ' m' : '',
                     b.stammumfang ? b.stammumfang + ' cm' : '',
                     b.lage || b.hausNr || ''].filter(Boolean).join(' · ');
-      return '<div class="baumzeile ' + ampel + '" id="bz' + i + '">' +
-        '<div class="nr">' + esc(b.nr || (i + 1)) + '</div>' +
+      var ort = b.gpsLat && b.gpsLon;
+      return '<div class="baumzeile ' + ampel + '" id="bz' + i + '"' +
+        ' onmouseenter="App.baumWach(' + i + ')" onmouseleave="App.baumWach(null)">' +
+        '<div class="nr' + (ort ? '' : ' ohneort') + '" onclick="App.baumZeigen(' + i + ')" ' +
+        'title="' + (ort ? 'Auf der Karte zeigen' : 'Standort auf der Karte setzen') + '">' +
+        esc(b.nr || (i + 1)) + '</div>' +
         '<div class="txt" onclick="App.baumOeffnen(' + i + ')">' +
           '<b>' + esc(b.artDt || 'Ohne Art') + '</b>' +
           '<span>' + esc(fakten || 'noch nichts gemessen') + '</span></div>' +
@@ -724,6 +727,90 @@ var App = (function () {
         '</div>' +
         '<button class="weg" onclick="App.loeschFrage(' + i + ')">&#128465;</button></div>';
     }).join('');
+
+    if (window.Karte) Karte.zeichne();
+  }
+
+  /* =========================================================================
+   * Liste und Karte
+   *
+   * Auf dem Telefon ist immer nur eines von beiden zu sehen, sonst scrollt man
+   * sich tot. Auf dem Tablet steht die Karte über der Liste und beides bleibt
+   * im Blick. Die Wahl wird gemerkt, wer mit der Karte arbeitet, arbeitet den
+   * ganzen Tag mit der Karte.
+   * ====================================================================== */
+  var ZEIGT = 'baumkontrolle.listeZeigt';
+
+  function listeZeigt(was) {
+    var v = el('view-liste');
+    if (!v) return;
+    v.setAttribute('data-zeigt', was);
+    if (el('umListe')) el('umListe').className = (was === 'liste') ? 'aktiv' : '';
+    if (el('umKarte')) el('umKarte').className = (was === 'karte') ? 'aktiv' : '';
+    try { localStorage.setItem(ZEIGT, was); } catch (e) { /* Speicher gesperrt */ }
+    karteAuffrischen();
+  }
+
+  function listeZeigtHolen() {
+    try { return localStorage.getItem(ZEIGT) === 'karte' ? 'karte' : 'liste'; }
+    catch (e) { return 'liste'; }
+  }
+
+  /** Die Karte meldet sich selbst ab, wenn ihr Kasten gar nicht zu sehen ist.
+   *  Ein Bild abwarten, sonst misst Leaflet noch die alte Größe: beim
+   *  Umschalten ändert sich erst die Klasse und dann das Kastenmaß. */
+  function karteAuffrischen() {
+    if (!window.Karte) return;
+    if (window.requestAnimationFrame) requestAnimationFrame(function () { Karte.sichtbar(); });
+    else Karte.sichtbar();
+  }
+
+  /** Vom Baumformular auf die Karte: den offenen Baum dort hinsetzen, wo er
+   *  steht. Der Weg für alles, was man nicht am Baum stehend erfasst hat,
+   *  etwa wenn ein Bestand erst aufgenommen und danach verortet wird. */
+  function aufKarteSetzen() {
+    var i = aktuellerBaum;
+    if (i === null || !S.baeume[i]) return;
+    baumSpeichern(false);
+    listeZeigt('karte');
+    setTimeout(function () { if (window.Karte) Karte.setzen(i); }, 200);
+  }
+
+  /** Nummer in der Liste angetippt: den Baum auf der Karte zeigen. Hat er
+   *  noch keinen Standort, wird stattdessen gleich das Setzen angeboten.
+   *  Auf dem Telefon muss dafür auf die Karte umgeschaltet werden, auf dem
+   *  Tablet steht sie ohnehin daneben. */
+  function baumZeigen(i) {
+    var b = S.baeume[i];
+    if (!b) return;
+    var hatOrt = !!(b.gpsLat && b.gpsLon);
+    if (window.matchMedia && window.matchMedia('(min-width:820px)').matches) karteAuffrischen();
+    else listeZeigt('karte');
+    setTimeout(function () {
+      if (!window.Karte) return;
+      if (hatOrt) Karte.hin(i);
+      else { Karte.setzen(i); melde('Baum ' + (b.nr || (i + 1)) + ': auf die Stelle tippen.'); }
+    }, 220);
+  }
+
+  /** Zeiger über der Listenzeile hebt die Marke hervor. Nur am Rechner,
+   *  auf dem Tablet gibt es keinen Zeiger und das Antippen tut dasselbe. */
+  function baumWach(i) {
+    if (window.Karte && Karte._da()) Karte.wach(i);
+  }
+
+  /** Aus der Karte heraus verschoben oder gesetzt. */
+  function baumOrt(i, lat, lon) {
+    var b = S.baeume[i];
+    if (!b) return;
+    b.gpsLat = String(lat);
+    b.gpsLon = String(lon);
+    if (aktuellerBaum === i && ansicht === 'baum') {
+      setzeFeld('b_gpsLat', b.gpsLat);
+      setzeFeld('b_gpsLon', b.gpsLon);
+      gpsAnzeige();
+    }
+    sichern();
   }
 
   /** „stärker geschädigt" passt nicht in eine Marke, „stärker" schon. */
@@ -1177,8 +1264,7 @@ var App = (function () {
         esc(dringText(m.stufe)) + '</span>' +
         (m.frist ? '<span class="hinweis" style="display:inline;margin-left:8px">bis ' +
                    esc(deDatum(m.frist)) + '</span>' : '') +
-        '<span class="pill" style="float:right;margin:0">' + esc(euro(preisFuer(b, m))) +
-        '</span></div>' +
+        '</div>' +
         '<div class="feld" style="margin:0"><label>Begründung</label>' +
         '<input value="' + esc(m.begruendung || '') +
         '" oninput="App.massnahmeFeld(' + i + ',\'begruendung\',this.value)"></div></div>';
@@ -1657,7 +1743,6 @@ var App = (function () {
     }).length;
     var schwer = S.baeume.filter(function (b) { return b.zustand === 'stärker geschädigt'; }).length;
 
-    var wert = auftragswert();
     el('ausgabeKacheln').innerHTML = [
       [S.baeume.length, 'erfasste Bäume', false],
       [alle.length, 'Maßnahmen', false],
@@ -1666,47 +1751,7 @@ var App = (function () {
     ].map(function (k) {
       return '<div class="kachel"><div class="z' + (k[2] ? ' warn' : '') + '">' + k[0] +
              '</div><div class="t">' + esc(k[1]) + '</div></div>';
-    }).join('') +
-    '<div class="kachel" style="grid-column:1/-1;background:#f0f5f1;border-color:#c6d8ca">' +
-    '<div class="z">' + euro(wert) + '</div>' +
-    '<div class="t">Auftragswert netto · ' + euro(wert * (100 + (S.einstellungen.ust || 19)) / 100) +
-    ' brutto</div></div>';
-
-    /* Aufteilung nach Dringlichkeit unter dem Angebotsknopf */
-    var nachStufe = DATA.DRINGLICHKEIT.map(function (d) {
-      var g = posten().filter(function (p) { return p.stufe === d.stufe; });
-      if (!g.length) return '';
-      return '<tr><td><span class="dring d' + d.stufe + '">' + esc(d.kurz) + '</span></td>' +
-             '<td style="text-align:center">' + g.length + '</td>' +
-             '<td style="text-align:right;font-weight:700">' +
-             euro(g.reduce(function (s, p) { return s + p.preis; }, 0)) + '</td></tr>';
     }).join('');
-    var sev = sevPositionen();
-    el('sevListe').innerHTML = sev.length
-      ? '<table class="mini" style="margin-bottom:12px"><tr><th>Position</th>' +
-        '<th style="text-align:center">Menge</th><th style="text-align:right">Einzeln</th>' +
-        '<th style="text-align:right">Gesamt</th></tr>' +
-        sev.map(function (p) {
-          return '<tr><td style="font-size:12.5px">' + esc(p.text) + '</td>' +
-                 '<td style="text-align:center">' + p.menge + '</td>' +
-                 '<td style="text-align:right">' + esc(zahl(p.einzel)) + '</td>' +
-                 '<td style="text-align:right;font-weight:700">' +
-                 esc(zahl(p.einzel * p.menge)) + '</td></tr>';
-        }).join('') + '</table>'
-      : '';
-
-    var ohnePreis = posten().filter(function (p) { return !p.preis; });
-    el('angebotSumme').innerHTML = nachStufe
-      ? '<table class="mini" style="margin-bottom:12px">' +
-        '<tr><th>Dringlichkeit</th><th style="text-align:center">Positionen</th>' +
-        '<th style="text-align:right">Netto</th></tr>' + nachStufe + '</table>' +
-        (ohnePreis.length ? '<div class="warnkasten">' + ohnePreis.length +
-          (ohnePreis.length === 1 ? ' Position hat' : ' Positionen haben') +
-          ' keinen Preis in der Liste und erscheinen als „auf Anfrage": ' +
-          esc(ohnePreis.map(function (p) { return p.text; })
-             .filter(function (v, i, arr) { return arr.indexOf(v) === i; }).join(', ')) +
-          '. Preis in den Einstellungen ergänzen, wenn er ins Angebot soll.</div>' : '')
-      : '<div class="hinweis" style="margin-bottom:10px">Noch keine Maßnahmen erfasst.</div>';
   }
 
   function daten() {
@@ -1748,202 +1793,6 @@ var App = (function () {
     if (!S.baeume.length) { melde('Noch kein Baum erfasst.'); return; }
     try { XLS.bestand(daten()); melde('Excel erzeugt.'); }
     catch (e) { melde('Excel fehlgeschlagen: ' + e.message); }
-  }
-
-  function excelKalkulation() {
-    if (!S.baeume.length) { melde('Noch kein Baum erfasst.'); return; }
-    try {
-      XLS.kalkulation(daten(), preisliste(), S.einstellungen);
-      melde('Kalkulation erzeugt.');
-    } catch (e) { melde('Kalkulation fehlgeschlagen: ' + e.message); }
-  }
-
-  function preisliste() {
-    return S.preise || JSON.parse(JSON.stringify(DATA.PREISE_STANDARD));
-  }
-
-  /** Preis einer Maßnahme aus der Höhenklasse des Baumes. */
-  function preisFuer(baum, massnahme) {
-    var reihe = preisliste()[massnahme.text];
-    if (!reihe) return 0;
-    return reihe[DATA.hoehenklasse(baum.hoehe)] || 0;
-  }
-
-  function euro(n) {
-    return (Math.round(n * 100) / 100).toLocaleString('de-DE',
-      { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + ' €';
-  }
-
-  /** Alle Angebotspositionen über den ganzen Bestand. */
-  function posten() {
-    var liste = [];
-    S.baeume.forEach(function (b) {
-      (b.massnahmen || []).forEach(function (m) {
-        liste.push({
-          nr: b.nr, art: b.artDt, hoehe: b.hoehe,
-          standort: [b.lage || b.strasse, b.hausNr].filter(Boolean).join(' '),
-          klasse: DATA.HOEHENKLASSEN[DATA.hoehenklasse(b.hoehe)],
-          text: m.text, stufe: m.stufe,
-          frist: m.frist ? 'bis ' + deDatum(m.frist) : '',
-          preis: preisFuer(b, m)
-        });
-      });
-    });
-    return liste;
-  }
-
-  function auftragswert() {
-    return posten().reduce(function (s, p) { return s + p.preis; }, 0);
-  }
-
-  /* =========================================================================
-   * sevDesk: Positionsliste
-   *
-   * sevDesk importiert per CSV nur Kontakte und Produkte, keine Angebote.
-   * Die Positionen müssen dort eingetragen werden – also so wenige und so
-   * klar wie möglich.
-   * ====================================================================== */
-
-  function sevPositionen() {
-    var art = feldWert('sevGruppierung') || 'leistung',
-        p = posten(),
-        raus = [];
-
-    if (art === 'baum') {
-      p.forEach(function (x) {
-        raus.push({
-          text: DATA.leistungstext(x.text) + ' – ' + x.art + ' Nr. ' + x.nr +
-                (x.standort ? ', ' + x.standort : ''),
-          menge: 1, einzel: x.preis, stufe: x.stufe
-        });
-      });
-    } else {
-      var karte = {};
-      p.forEach(function (x) {
-        var k = x.text + '|' + x.klasse + '|' + x.preis;
-        if (!karte[k]) karte[k] = { text: DATA.leistungstext(x.text), klasse: x.klasse,
-                                    einzel: x.preis, nummern: [], stufe: x.stufe };
-        karte[k].nummern.push(x.nr);
-        if (x.stufe < karte[k].stufe) karte[k].stufe = x.stufe;
-      });
-      Object.keys(karte).forEach(function (k) {
-        var g = karte[k];
-        raus.push({
-          text: g.text + ' – Höhenklasse ' + g.klasse +
-                ' (Baum ' + g.nummern.join(', ') + ')',
-          menge: g.nummern.length, einzel: g.einzel, stufe: g.stufe
-        });
-      });
-    }
-    raus.sort(function (a, b) { return (a.stufe || 9) - (b.stufe || 9); });
-    return raus;
-  }
-
-  function sevText() {
-    var z = sevPositionen();
-    return ['Bezeichnung\tMenge\tEinheit\tEinzelpreis\tGesamt'].concat(
-      z.map(function (p) {
-        return [p.text, p.menge, 'Stück', zahl(p.einzel), zahl(p.einzel * p.menge)].join('\t');
-      })
-    ).join('\n');
-  }
-
-  function zahl(n) {
-    return (Math.round(n * 100) / 100).toFixed(2).replace('.', ',');
-  }
-
-  function sevKopieren() {
-    var text = sevText();
-    if (!text || sevPositionen().length === 0) { melde('Keine Positionen vorhanden.'); return; }
-    if (navigator.clipboard && navigator.clipboard.writeText) {
-      navigator.clipboard.writeText(text).then(function () {
-        melde(sevPositionen().length + ' Positionen kopiert.');
-      }, function () { kopieAlt(text); });
-    } else kopieAlt(text);
-  }
-
-  /** Fallback, weil die Zwischenablage bei lokal geöffneten Dateien oft blockt. */
-  function kopieAlt(text) {
-    var f = document.createElement('textarea');
-    f.value = text;
-    f.style.position = 'fixed';
-    f.style.opacity = '0';
-    document.body.appendChild(f);
-    f.select();
-    var ok = false;
-    try { ok = document.execCommand('copy'); } catch (e) {}
-    document.body.removeChild(f);
-    if (ok) melde(sevPositionen().length + ' Positionen kopiert.');
-    else blendeAuf('Positionen', '<div class="hinweis" style="margin-bottom:8px">' +
-      'Zum Markieren antippen und kopieren.</div><textarea style="min-height:220px;' +
-      'font-family:ui-monospace,Menlo,monospace;font-size:12px">' + esc(text) + '</textarea>');
-  }
-
-  function csvDatei(name, zeilen) {
-    var text = '\ufeff' + zeilen.map(function (z) {
-      return z.map(function (f) {
-        var s = String(f == null ? '' : f);
-        return /[";\n]/.test(s) ? '"' + s.replace(/"/g, '""') + '"' : s;
-      }).join(';');
-    }).join('\r\n');
-    var blob = new Blob([text], { type: 'text/csv;charset=utf-8' }),
-        url = URL.createObjectURL(blob),
-        a = document.createElement('a');
-    a.href = url; a.download = name;
-    document.body.appendChild(a); a.click(); document.body.removeChild(a);
-    setTimeout(function () { URL.revokeObjectURL(url); }, 1000);
-  }
-
-  function sevCsv() {
-    var z = sevPositionen();
-    if (!z.length) { melde('Keine Positionen vorhanden.'); return; }
-    csvDatei('Angebotspositionen_' + (S.auftrag.objekt || 'Baumkontrolle')
-        .replace(/[^\wäöüÄÖÜß -]/g, '').trim().replace(/\s+/g, '_') + '.csv',
-      [['Bezeichnung', 'Menge', 'Einheit', 'Einzelpreis netto', 'Gesamt netto', 'Dringlichkeit']]
-      .concat(z.map(function (p) {
-        return [p.text, p.menge, 'Stück', zahl(p.einzel), zahl(p.einzel * p.menge),
-                dringText(p.stufe)];
-      })));
-    melde('CSV mit ' + z.length + ' Positionen abgelegt.');
-  }
-
-  /** Preisliste als Artikelstamm – einmal in sevDesk importiert, danach nur noch auswählen. */
-  function sevProdukte() {
-    var p = preisliste(),
-        zeilen = [['Artikelnummer', 'Name', 'Beschreibung', 'Preis', 'Einheit', 'Steuersatz']],
-        nr = 0;
-    Object.keys(p).forEach(function (leistung) {
-      p[leistung].forEach(function (preis, i) {
-        if (!preis) return;
-        nr++;
-        zeilen.push([
-          'BP-' + String(nr).padStart(3, '0'),
-          DATA.leistungstext(leistung) + ' ' + DATA.HOEHENKLASSEN[i],
-          DATA.leistungstext(leistung) + ', Baumhöhe ' + DATA.HOEHENKLASSEN[i] +
-            ', nach ZTV-Baumpflege 2017',
-          zahl(preis), 'Stück', String(S.einstellungen.ust || 19)
-        ]);
-      });
-    });
-    csvDatei('sevDesk_Produkte_Baumpflege.csv', zeilen);
-    melde(zeilen.length - 1 + ' Artikel abgelegt. In sevDesk unter Produkte importieren.');
-  }
-
-  function angebot() {
-    if (!S.baeume.length) { melde('Noch kein Baum erfasst.'); return; }
-    var p = posten();
-    if (!p.length) { melde('Keine Maßnahmen erfasst – es gibt nichts anzubieten.'); return; }
-    PDF.setzeFirma({
-      name: S.einstellungen.name, zusatz: S.einstellungen.zusatz,
-      anschrift: S.einstellungen.anschrift, kontakt: S.einstellungen.kontakt
-    });
-    try {
-      PDF.speichereAngebot(daten(), p, {
-        ust: S.einstellungen.ust, gueltigTage: 60,
-        datum: deDatum(heuteISO()), angebotsNr: S.auftrag.auftragsNr
-      });
-      melde('Angebot erzeugt: ' + euro(auftragswert()) + ' netto.');
-    } catch (e) { melde('Angebot fehlgeschlagen: ' + e.message); }
   }
 
   /* =========================================================================
@@ -2024,7 +1873,7 @@ var App = (function () {
    * ====================================================================== */
   function zeichneEinstellungen() {
     var e = S.einstellungen;
-    ['name','zusatz','anschrift','kontakt','ust','stundensatz'].forEach(function (k) {
+    ['name','zusatz','anschrift','kontakt'].forEach(function (k) {
       setzeFeld('e_' + k, e[k]);
     });
     el('versionZeile').textContent = 'Version ' + VERSION;
@@ -2045,8 +1894,6 @@ var App = (function () {
     ['name','zusatz','anschrift','kontakt'].forEach(function (k) {
       S.einstellungen[k] = feldWert('e_' + k);
     });
-    S.einstellungen.ust = parseFloat(feldWert('e_ust')) || 19;
-    S.einstellungen.stundensatz = parseFloat(feldWert('e_stundensatz')) || 85;
     sichern();
     melde('Übernommen.');
   }
@@ -2098,49 +1945,15 @@ var App = (function () {
       b._position = i; b.geloescht = heuteISO(); b._objekt = S.auftrag.objekt;
       S.papierkorb.push(b);
     });
-    var papierkorb = S.papierkorb, einst = S.einstellungen, preise = S.preise;
+    var papierkorb = S.papierkorb, einst = S.einstellungen;
     S = leererZustand();
-    S.papierkorb = papierkorb; S.einstellungen = einst; S.preise = preise;
+    S.papierkorb = papierkorb; S.einstellungen = einst;
     aktuellerBaum = null;
     sichern();
     blendeZu();
     auftragSchreiben();
     zeige('liste');
     melde('Zurückgesetzt. Die Bäume liegen im Papierkorb.');
-  }
-
-  /* =========================================================================
-   * Preisliste
-   * ====================================================================== */
-  function preislisteBearbeiten() {
-    var p = preisliste();
-    var html = '<div class="hinweis" style="margin-bottom:10px">Netto in Euro je Baum, ' +
-      'gestaffelt nach Höhenklasse.</div><table class="mini"><tr><th>Leistung</th>' +
-      DATA.HOEHENKLASSEN.map(function (h) { return '<th>' + esc(h) + '</th>'; }).join('') + '</tr>' +
-      Object.keys(p).map(function (k) {
-        return '<tr><td style="font-size:12.5px">' + esc(k) + '</td>' +
-          p[k].map(function (wert, i) {
-            return '<td><input type="number" value="' + wert + '" style="padding:6px;min-height:34px;' +
-              'font-size:14px" oninput="App.preisSetzen(' + esc(JSON.stringify(k)) + ',' + i +
-              ',this.value)"></td>';
-          }).join('') + '</tr>';
-      }).join('') + '</table>' +
-      '<button class="btn" style="margin-top:12px" onclick="App.blendeZu()">Fertig</button>' +
-      '<button class="btn zweit" onclick="App.preiseZuruecksetzen()">Auf Standard zurücksetzen</button>';
-    blendeAuf('Preisliste', html);
-  }
-
-  function preisSetzen(leistung, index, wert) {
-    if (!S.preise) S.preise = JSON.parse(JSON.stringify(DATA.PREISE_STANDARD));
-    S.preise[leistung][index] = parseFloat(wert) || 0;
-    sichern();
-  }
-
-  function preiseZuruecksetzen() {
-    S.preise = null;
-    sichern();
-    blendeZu();
-    melde('Standardpreise wiederhergestellt.');
   }
 
   /* =========================================================================
@@ -2160,6 +1973,10 @@ var App = (function () {
     fuelleSelect('b_roloff', DATA.ROLOFF);
     fuelleSelect('b_intervall', ['halbjährlich', 'jährlich', '2 Jahre', '3 Jahre',
                                  'keine gesonderte RK']);
+
+    /* Liste oder Karte, so wie man es zuletzt hatte. Muss vor auftragStarten
+       stehen, damit die Karte beim ersten Zeichnen schon ihren Platz hat. */
+    listeZeigt(listeZeigtHolen());
 
     /* Die Aufträge liegen in IndexedDB, das Lesen läuft asynchron.
        Erst danach steht fest, was gezeichnet wird. */
@@ -2246,16 +2063,15 @@ var App = (function () {
     massnahmeNeu: massnahmeNeu, massnahmeStufe: massnahmeStufe, massnahmeAnlegen: massnahmeAnlegen,
     massnahmeFeld: massnahmeFeld, massnahmeWeg: massnahmeWeg,
     fotoWeg: fotoWeg, gps: gps, gpsObjekt: gpsObjekt, gpsObjektWeg: gpsObjektWeg,
-    mehr: mehr, richtung: richtung,
+    mehr: mehr, richtung: richtung, melde: melde,
+    listeZeigt: listeZeigt, baumOrt: baumOrt, aufKarteSetzen: aufKarteSetzen,
+    baumZeigen: baumZeigen, baumWach: baumWach,
     ksNeu: ksNeu, ksBearbeiten: ksBearbeiten, ksSpeichern: ksSpeichern, ksWeg: ksWeg,
     ksHersteller: ksHersteller, ksMangel: ksMangel, ksFarbeAendern: ksFarbeAendern,
     ksBemessung: ksBemessungAnzeige, farbNachschlag: farbNachschlag,
     farbJahre: farbJahre, farbJahrSetzen: farbJahrSetzen,
     blendeAuf: blendeAuf, blendeZu: blendeZu,
-    pdf: pdf, excel: excel, excelKalkulation: excelKalkulation,
-    angebot: angebot, auftragswert: auftragswert, posten: posten,
-    sevKopieren: sevKopieren, sevCsv: sevCsv, sevProdukte: sevProdukte,
-    sevPositionen: sevPositionen, sevText: sevText, zeichneAusgabe: zeichneAusgabe,
+    pdf: pdf, excel: excel, zeichneAusgabe: zeichneAusgabe,
     zeichneKunden: zeichneKunden, kundeNeu: kundeNeu, kundeSpeichern: kundeSpeichern,
     kundeOeffnen: kundeOeffnen,
     auftragWechsel: auftragWechsel, auftragOeffnen: auftragOeffnen, auftragNeu: auftragNeu,
@@ -2264,7 +2080,6 @@ var App = (function () {
     einstellungenSpeichern: einstellungenSpeichern,
     papierkorbZurueck: papierkorbZurueck, papierkorbLeeren: papierkorbLeeren,
     allesZuruecksetzen: allesZuruecksetzen, zuruecksetzenAusfuehren: zuruecksetzenAusfuehren,
-    preisliste: preislisteBearbeiten, preisSetzen: preisSetzen, preiseZuruecksetzen: preiseZuruecksetzen,
     _zustand: function () { return S; }
   };
 })();

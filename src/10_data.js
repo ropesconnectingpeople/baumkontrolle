@@ -464,14 +464,6 @@ var DATA = (function () {
     'Kronensicherung ergänzen', 'Kronensicherung ausbauen', 'Kronensicherung im Baum prüfen'
   ];
 
-  /** Katalogtexte sind in der Sprache der Richtlinie geschrieben. Fürs Angebot
-   *  wird daraus die Leistung, die tatsächlich erbracht und berechnet wird. */
-  function leistungstext(txt) {
-    return String(txt || '')
-      .replace(/ veranlassen$/, '')
-      .replace(/^Sofortmaßnahme: /, '')
-      .replace(/^Kronensicherung einbauen$/, 'Kronensicherung einbauen (dynamisch, verletzungsfrei)');
-  }
 
   /* --- Dringlichkeitsstufen nach GALK 2021 -------------------------------- */
   var DRINGLICHKEIT = [
@@ -560,44 +552,7 @@ var DATA = (function () {
   }
 
   /* --- Preisliste, Richtwerte nach Höhenklasse ---------------------------- */
-  var HOEHENKLASSEN = ['bis 10 m', '10–15 m', '15–20 m', 'über 20 m'];
 
-  function hoehenklasse(h) {
-    h = parseFloat(h) || 0;
-    if (h <= 10) return 0;
-    if (h <= 15) return 1;
-    if (h <= 20) return 2;
-    return 3;
-  }
-
-  var PREISE_STANDARD = {
-    'Totholzentnahme':                 [ 95, 160, 240, 340],
-    'Kronenpflege':                    [130, 210, 320, 450],
-    'Kronenauslichtung':               [140, 230, 350, 480],
-    'Kroneneinkürzung':                [180, 290, 430, 620],
-    'Kronenteileinkürzung':            [140, 220, 330, 470],
-    'Entlastungsschnitt':              [120, 190, 290, 410],
-    'Ableitungsschnitt auf Versorgungsast': [130, 200, 300, 420],
-    'Lichtraumprofilschnitt':          [ 80, 130, 190, 260],
-    'Kopfbaum-/Kronenschnitt':         [110, 170, 250, 340],
-    'Jungbaum-/Erziehungsschnitt':     [ 45,  70,   0,   0],
-    'Kronensicherung einbauen':        [220, 320, 460, 640],
-    'Kronensicherung erneuern':        [200, 300, 430, 600],
-    'Kronensicherung nachjustieren':   [ 90, 130, 180, 240],
-    'Kronensicherung ergänzen':        [150, 220, 320, 440],
-    'Kronensicherung ausbauen':        [110, 160, 230, 310],
-    'Kronensicherung im Baum prüfen':  [ 85, 120, 165, 220],
-    'Fällung':                         [280, 480, 780, 1250],
-    'Wurzelbehandlung':                [180, 180, 180, 180],
-    'Standortsanierung':               [350, 350, 350, 350],
-    'Eingehende Untersuchung veranlassen': [420, 420, 480, 540],
-    'Steigerkontrolle':                [180, 220, 280, 340],
-    'Nachkontrolle':                   [ 45,  45,  45,  45],
-    'Sofortmaßnahme: Absperrung':      [120, 120, 120, 120],
-    'Sofortmaßnahme: Verkehrslenkung': [180, 180, 180, 180],
-    'Efeu am Stammfuß auf Stock setzen': [ 55,  55,  65,  75],
-    'Baumscheibe vergrößern':          [140, 140, 160, 180]
-  };
 
   return {
     ARTEN: ARTEN, QUALIFIKATIONEN: QUALIFIKATIONEN, PHASEN: PHASEN, ZUSTAENDE: ZUSTAENDE, ERWARTUNG: ERWARTUNG,
@@ -607,9 +562,8 @@ var DATA = (function () {
     KS_FARBEN: KS_FARBEN, KS_HERSTELLER: KS_HERSTELLER, KS_SYSTEM: KS_SYSTEM,
     KS_BAUART: KS_BAUART, KS_VERBUND: KS_VERBUND, KS_BEWERTUNG: KS_BEWERTUNG,
     KS_MAENGEL: KS_MAENGEL,
-    HOEHENKLASSEN: HOEHENKLASSEN, PREISE_STANDARD: PREISE_STANDARD,
     intervall: intervall, intervallJahre: intervallJahre, intervallMonate: intervallMonate, intervallGrundlage: intervallGrundlage,
-    hoehenklasse: hoehenklasse, leistungstext: leistungstext, ksJahre: ksJahre, ksFarbeZuJahr: ksFarbeZuJahr,
+    ksJahre: ksJahre, ksFarbeZuJahr: ksFarbeZuJahr,
     ksBemessung: ksBemessung,
     artFinden: artFinden, artGenau: artGenau, artNorm: artNorm
   };

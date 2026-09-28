@@ -1072,202 +1072,10 @@ var PDF = (function () {
     return doc;
   }
 
-  /* =========================================================================
-   * Angebot
-   *
-   * Bewusst ein eigenes Dokument. Wer kontrolliert und ausführt, steht sonst
-   * im Verdacht, sich Arbeit herbeizuschreiben. Das Protokoll bleibt neutral
-   * und liefert die Begründung, das Angebot nur den Preis.
-   *
-   * Positionen sind nach Dringlichkeit gruppiert und haben Zwischensummen,
-   * damit der Kunde auch nur die vorderen Blöcke beauftragen kann.
-   * ====================================================================== */
-
-  /** Glättung der Katalogtexte fürs Angebot. Liegt in 10_data.js, damit App
-   *  und PDF dieselbe Fassung verwenden. */
-  function leistungstext(txt) {
-    return (typeof DATA !== 'undefined' && DATA.leistungstext)
-      ? DATA.leistungstext(txt) : String(txt || '');
-  }
-
-  function euro(n) {
-    return (Math.round(n * 100) / 100).toLocaleString('de-DE',
-      { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + ' €';
-  }
-
-  function angebot(daten, posten, opt) {
-    opt = opt || {};
-    var a = daten.auftrag || {},
-        ust = opt.ust == null ? 19 : opt.ust,
-        doc = neuesDokument();
-
-    /* --- Briefkopf --- */
-    var y = M.o + 4;
-    t(doc, FIRMA.name, M.l, y, { size: 13, bold: true, color: C.gruen });
-    t(doc, FIRMA.zusatz, M.l, y + 3.4, { size: 7, color: C.weich });
-    t(doc, 'Angebots-Nr.', M.b - M.r, y - 3.6, { size: 7.4, align: 'right', color: C.weich });
-    t(doc, opt.angebotsNr || a.auftragsNr || '', M.b - M.r, y, { size: 10.5, bold: true, align: 'right' });
-    t(doc, opt.datum || a.berichtsdatum || a.datum || '', M.b - M.r, y + 3.4,
-      { size: 7.4, align: 'right', color: C.weich });
-    line(doc, M.l, y + 5.4, M.b - M.r, y + 5.4, C.gruen, 0.9);
-    y += 12;
-
-    /* --- Empfänger --- */
-    t(doc, a.auftraggeber || '', M.l, y, { size: 9.4, bold: true });
-    y += 10;
-
-    t(doc, 'Angebot über Baumpflegearbeiten', M.l, y, { size: 12.5, bold: true });
-    y += 5;
-    t(doc, a.objekt || '', M.l, y, { size: 8.4, color: C.weich });
-    y += 7;
-
-    var einleitung = 'auf Grundlage der Regelkontrolle vom ' + (a.datum || '') +
-      (a.datumBis ? ' bis ' + a.datumBis : '') +
-      ' unterbreiten wir Ihnen folgendes Angebot über die im Kontrollbericht empfohlenen ' +
-      'Maßnahmen. Die fachliche Begründung je Baum entnehmen Sie bitte dem Kontrollbericht, ' +
-      'der diesem Angebot zugrunde liegt.';
-    t(doc, 'Sehr geehrte Damen und Herren,', M.l, y, { size: 8.4 });
-    y += 4.4;
-    y += textBlock(doc, einleitung, M.l, y, M.w, { size: 8.4, lh: 3.9 }) + 4;
-
-    /* --- Positionen, nach Dringlichkeit gruppiert --- */
-    var pos = 0, gesamt = 0, zwischen = [], y2 = y;
-
-    [1, 2, 3, 4, 5].forEach(function (stufe) {
-      var gruppe = posten.filter(function (p) { return p.stufe === stufe; });
-      if (!gruppe.length) return;
-
-      var summe = gruppe.reduce(function (s, p) { return s + (p.preis || 0); }, 0),
-          offen = gruppe.filter(function (p) { return !p.preis; }).length;
-      gesamt += summe;
-      zwischen.push({ stufe: stufe, summe: summe, anzahl: gruppe.length });
-
-      var d = DRING[stufe];
-      if (y2 > M.h - 42) { doc.addPage(); y2 = M.o + 6; }
-
-      /* Farbiger Gruppenbalken statt einer Dringlichkeitsspalte je Zeile */
-      rect(doc, M.l, y2, M.w, 4.8, d.bg, null);
-      t(doc, ('Ausführung ' + d.lang).toUpperCase(), M.l + 2, y2 + 3.3,
-        { size: 7, bold: true, color: d.fg });
-      t(doc, gruppe.length + (gruppe.length === 1 ? ' Position' : ' Positionen'),
-        M.b - M.r - 2, y2 + 3.3, { size: 7, bold: true, color: d.fg, align: 'right' });
-      y2 += 4.8;
-
-      doc.autoTable({
-        startY: y2,
-        margin: { left: M.l, right: M.r },
-        tableWidth: M.w,
-        showHead: 'everyPage',
-        styles: { fontSize: 7.6, cellPadding: 1.5, lineColor: [204, 204, 204], lineWidth: 0.15, valign: 'top' },
-        headStyles: { fillColor: C.kopfBg, textColor: [68, 68, 68], fontSize: 6.4, fontStyle: 'bold' },
-        columnStyles: {
-          0: { cellWidth: M.w * 0.06, halign: 'center' },
-          1: { cellWidth: M.w * 0.1, halign: 'center' },
-          2: { cellWidth: M.w * 0.19 },
-          3: { cellWidth: M.w * 0.3 },
-          4: { cellWidth: M.w * 0.15, halign: 'center' },
-          5: { cellWidth: 'auto', halign: 'right' }
-        },
-        head: [['Pos.', 'Baum-Nr.', 'Baum und Standort', 'Leistung', 'Ausführung bis', 'Netto']],
-        body: gruppe.map(function (p) {
-          pos++;
-          return [String(pos), p.nr,
-            p.art + (p.standort ? '\n' + p.standort : ''),
-            leistungstext(p.text), (p.frist || '').replace(/^bis /, ''),
-            p.preis ? euro(p.preis) : 'auf Anfrage'];
-        })
-      });
-
-      var zy = doc.lastAutoTable.finalY;
-      if (zy > M.h - 14) { doc.addPage(); zy = M.o + 6; }
-      rect(doc, M.l + M.w * 0.6, zy, M.w * 0.4, 5.2, [246, 248, 246], C.linie);
-      t(doc, 'Zwischensumme ' + d.kurz, M.l + M.w * 0.615, zy + 3.5, { size: 7.2, bold: true });
-      if (offen) t(doc, '+ ' + offen + ' Position' + (offen === 1 ? '' : 'en') + ' auf Anfrage',
-                   M.l + 1.6, zy + 3.5, { size: 6.6, color: C.weich });
-      t(doc, euro(summe), M.b - M.r - 1.6, zy + 3.5, { size: 7.6, bold: true, align: 'right', color: C.gruen });
-      y2 = zy + 8.4;
-    });
-
-    if (y2 > M.h - 60) { doc.addPage(); y2 = M.o + 6; }
-
-    /* --- Summen --- */
-    var sx = M.l + M.w * 0.5, sw = M.w * 0.5, sh = 6;
-    [['Summe netto', gesamt, false],
-     ['zzgl. ' + ust + ' % Umsatzsteuer', gesamt * ust / 100, false],
-     ['Gesamtbetrag brutto', gesamt * (100 + ust) / 100, true]
-    ].forEach(function (r, i) {
-      var yy = y2 + i * sh;
-      if (r[2]) rect(doc, sx, yy, sw, sh, C.hell, C.linie);
-      else      line(doc, sx, yy + sh, sx + sw, yy + sh, C.fein);
-      t(doc, r[0], sx + 2.4, yy + 4.1, { size: r[2] ? 8.6 : 8, bold: r[2] });
-      t(doc, euro(r[1]), M.b - M.r - 2.4, yy + 4.1,
-        { size: r[2] ? 9.4 : 8, bold: true, align: 'right', color: r[2] ? C.gruen : C.text });
-    });
-    y2 += 3 * sh + 6;
-
-    /* --- Teilbeauftragung --- */
-    if (zwischen.length > 1) {
-      y2 = blockTitel(doc, 'Teilbeauftragung möglich', y2, true);
-      var zeilen = [], laufend = 0;
-      zwischen.forEach(function (z) {
-        laufend += z.summe;
-        zeilen.push([DRING[z.stufe].lang, String(z.anzahl), euro(z.summe), euro(laufend)]);
-      });
-      doc.autoTable({
-        startY: y2, margin: { left: M.l, right: M.r }, tableWidth: M.w,
-        styles: { fontSize: 7.4, cellPadding: 1.4, lineColor: [204, 204, 204], lineWidth: 0.15 },
-        headStyles: { fillColor: C.kopfBg, textColor: [68, 68, 68], fontSize: 6.4, fontStyle: 'bold' },
-        columnStyles: { 1: { halign: 'center', cellWidth: M.w * 0.14 },
-                        2: { halign: 'right', cellWidth: M.w * 0.2 },
-                        3: { halign: 'right', cellWidth: M.w * 0.24, fontStyle: 'bold' } },
-        head: [['Beauftragung bis einschließlich', 'Positionen', 'Betrag netto', 'Summe netto']],
-        body: zeilen
-      });
-      y2 = doc.lastAutoTable.finalY + 4;
-    }
-
-    if (y2 > M.h - 52) { doc.addPage(); y2 = M.o + 6; }
-
-    /* --- Hinweise --- */
-    y2 = blockTitel(doc, 'Hinweise', y2, true);
-    y2 = rechtsBlock(doc, [
-      ['Grundlage:', 'Die Positionen entsprechen den im Kontrollbericht vom ' +
-        (a.berichtsdatum || a.datum || '') + ' empfohlenen Maßnahmen. Preise verstehen sich netto je Baum.'],
-      ['Ausführung:', 'Alle Arbeiten nach ZTV-Baumpflege 2017 durch fachlich qualifiziertes Personal, ' +
-        'einschließlich Sicherung der Arbeitsstelle und Abfuhr des Schnittguts.'],
-      ['Fristen:', 'Die genannten Termine ergeben sich aus der Dringlichkeitseinstufung der Kontrolle. ' +
-        'Bei späterer Beauftragung kann die Frist nicht mehr eingehalten werden.'],
-      ['Verkehrssicherung:', 'Die Verantwortung für die Verkehrssicherheit bleibt bis zur Ausführung ' +
-        'beim Eigentümer. Als unverzüglich eingestufte Positionen dulden keinen Aufschub.'],
-      ['Artenschutz:', 'Vor Fällungen und Arbeiten an Höhlen- und Habitatbäumen wird § 44 BNatSchG geprüft. ' +
-        'Ergibt sich daraus eine Verzögerung, wird das vorab mitgeteilt.'],
-      ['Gültigkeit:', 'Dieses Angebot ist ' + (opt.gueltigTage || 60) + ' Tage gültig. ' +
-        'Zahlbar innerhalb von 14 Tagen nach Rechnungsstellung ohne Abzug.']
-    ], y2);
-
-    y2 += 5;
-    if (y2 < M.h - 26) {
-      t(doc, 'Wir freuen uns auf Ihren Auftrag.', M.l, y2, { size: 8.4 });
-      y2 += 9;
-      var sb = (M.w - 12) / 3;
-      [[a.kontrolleur || '', FIRMA.name],
-       [opt.datum || a.berichtsdatum || a.datum || '', 'Datum'],
-       ['', 'Auftragserteilung Kunde']].forEach(function (p, i) {
-        var x = M.l + i * (sb + 6);
-        line(doc, x, y2, x + sb, y2, [51, 51, 51], 0.3);
-        t(doc, p[0], x, y2 + 3.4, { size: 8, bold: true });
-        t(doc, p[1], x, y2 + 6.4, { size: 6.4, color: C.weich });
-      });
-    }
-
-    seitenzahlen(doc);
-    return doc;
-  }
-
   function dateiname(a, modus) {
     var teil = (a.objekt || 'Baumkontrolle').replace(/[^\wäöüÄÖÜß -]/g, '').trim().replace(/\s+/g, '_'),
         vorn = modus === 'bestand' ? 'Baumkontrollbericht_'
-             : (modus === 'angebot' ? 'Angebot_' : 'Baumkontrollprotokoll_');
+             : 'Baumkontrollprotokoll_';
     return vorn + teil + '_' + (a.datum || '').replace(/\./g, '-') + '.pdf';
   }
 
@@ -1276,15 +1084,10 @@ var PDF = (function () {
     DRING: DRING,
     KATALOG: KATALOG,
     erzeugen: erzeugen,
-    angebot: angebot,
     speichern: function (daten, opt) {
       var doc = erzeugen(daten, opt);
       doc.save(dateiname(daten.auftrag || {}, (opt && opt.modus) ||
         ((daten.baeume || []).length > 1 ? 'bestand' : 'einzel')));
-    },
-    speichereAngebot: function (daten, posten, opt) {
-      var doc = angebot(daten, posten, opt);
-      doc.save(dateiname(daten.auftrag || {}, 'angebot'));
     },
     setzeFirma: function (obj) { Object.keys(obj || {}).forEach(function (k) { FIRMA[k] = obj[k]; }); }
   };

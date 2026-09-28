@@ -8,32 +8,48 @@
 
 <nav class="reiter" id="reiter">
   <button id="rtKontrolle" onclick="App.zeige('liste')">Baumkontrolle</button>
-  <button id="rtAngebote" onclick="App.zeige('angebote')">Angebote</button>
   <button id="rtKunden" onclick="App.zeige('kunden')">Kunden</button>
 </nav>
 
 <main>
 
 <!-- ================= BAUMLISTE – die Zentrale ================= -->
-<div class="view aktiv" id="view-liste">
-  <div class="karte">
-    <h2>Auftrag</h2>
-    <div class="inhalt" id="auftragKurz"></div>
-    <div style="padding:0 14px 12px">
-      <div class="btnreihe">
-        <button class="btn zweit" onclick="App.zeige('auftrag')">Bearbeiten</button>
-        <button class="btn zweit" onclick="App.auftragWechsel()">Aufträge wechseln</button>
+<div class="view aktiv" id="view-liste" data-zeigt="liste">
+ <div class="zweispalten breitlinks">
+  <div class="sp1">
+    <div class="karte nurliste">
+      <h2>Auftrag</h2>
+      <div class="inhalt" id="auftragKurz"></div>
+      <div style="padding:0 14px 12px">
+        <div class="btnreihe">
+          <button class="btn zweit" onclick="App.zeige('auftrag')">Bearbeiten</button>
+          <button class="btn zweit" onclick="App.auftragWechsel()">Aufträge wechseln</button>
+        </div>
       </div>
+    </div>
+
+    <button class="btn" onclick="App.neuerBaum()">+ Baum aufnehmen</button>
+    <button class="btn zweit nurliste" onclick="App.farbNachschlag()">Jahresfarbe Kronensicherung nachschlagen</button>
+
+    <div class="umschalt">
+      <button id="umListe" class="aktiv" onclick="App.listeZeigt('liste')">Liste</button>
+      <button id="umKarte" onclick="App.listeZeigt('karte')">Karte</button>
+    </div>
+
+    <div class="karte" id="listeBlock">
+      <h2>Bäume <span id="baumZahl"></span></h2>
+      <div id="baumListe"></div>
     </div>
   </div>
 
-  <div class="karte">
-    <h2>Bäume <span id="baumZahl"></span></h2>
-    <div id="baumListe"></div>
+  <div class="sp2">
+    <div class="karte haftend" id="kartenBlock">
+      <h2>Karte <span id="kartenZahl"></span></h2>
+      <div class="kartenbox" id="kartenbox"></div>
+      <div class="kartenfuss" id="kartenfuss"></div>
+    </div>
   </div>
-
-  <button class="btn" onclick="App.neuerBaum()">+ Baum aufnehmen</button>
-  <button class="btn zweit" onclick="App.farbNachschlag()">Jahresfarbe Kronensicherung nachschlagen</button>
+ </div>
 </div>
 
 <!-- ================= AUFTRAG ================= -->
@@ -97,6 +113,8 @@
 
 <!-- ================= BAUM ================= -->
 <div class="view" id="view-baum">
+ <div class="zweispalten breitlinks">
+  <div class="sp1">
   <div class="karte">
     <h2>Baum</h2>
     <div class="inhalt">
@@ -138,8 +156,11 @@
         <div class="feld"><label>Haus-Nr.</label><input id="b_hausNr"></div>
         <div class="feld"><label>Baumumfeld</label><select id="b_umfeld"></select></div>
       </div>
-      <button class="btn zweit" onclick="App.gps()">Standort per GPS übernehmen</button>
-      <div class="hinweis" id="gpsAnzeige"></div>
+      <div class="btnreihe">
+        <button class="btn zweit" onclick="App.gps()">Standort per GPS</button>
+        <button class="btn zweit" onclick="App.aufKarteSetzen()">Auf der Karte setzen</button>
+      </div>
+      <div class="hinweis" id="gpsAnzeige" style="margin-top:6px"></div>
       <button class="mehrknopf" id="knopfOrt" onclick="App.mehr('Ort')">
         <span class="text">Weitere Angaben</span><span class="pfeil">&#9660;</span></button>
       <div class="mehrblock" id="mehrOrt" hidden>
@@ -170,7 +191,9 @@
         style="background:#f0f5f1;font-weight:700;color:#2d5a3d"></div>
     </div>
   </div>
+  </div>
 
+  <div class="sp2">
   <div class="karte">
     <h2>Schadsymptome – nur Auffälligkeiten</h2>
     <div id="symptome"></div>
@@ -240,17 +263,23 @@
     <h2 class="grau">Kontrollhistorie</h2>
     <div class="inhalt"><table class="mini" id="historieTabelle"></table></div>
   </div>
+  </div>
 
-  <button class="btn" onclick="App.baumSpeichern(true)">Speichern und nächsten Baum</button>
-  <button class="btn zweit" onclick="App.baumSpeichern(false)">Speichern und zurück</button>
+  <div class="breit">
+    <button class="btn" onclick="App.baumSpeichern(true)">Speichern und nächsten Baum</button>
+    <button class="btn zweit" onclick="App.baumSpeichern(false)">Speichern und zurück</button>
+  </div>
+ </div>
 </div>
 
 <!-- ================= AUSGABE ================= -->
 <!-- ================= ERGEBNISSE ================= -->
 <div class="view" id="view-ergebnisse">
-  <div class="kacheln" id="ausgabeKacheln"></div>
+ <div class="zweispalten gleich">
+  <div class="breit"><div class="kacheln" id="ausgabeKacheln"></div></div>
 
-<div class="karte">
+  <div class="sp1">
+  <div class="karte">
     <h2>Protokoll</h2>
     <div class="inhalt">
       <button class="btn" onclick="App.pdf('auto')">PDF erzeugen</button>
@@ -260,54 +289,20 @@
     </div>
   </div>
 
+  </div>
+
+  <div class="sp2">
   <div class="karte">
     <h2>Tabellen</h2>
     <div class="inhalt">
       <button class="btn zweit" onclick="App.excel()">Excel-Bestandsliste</button>
-      <button class="btn zweit" onclick="App.excelKalkulation()">Kalkulation mit Preisen</button>
-      <div class="hinweis">Preise erscheinen nur in der Kalkulation, nie im Kontrollprotokoll.</div>
+      <div class="hinweis">Alle Bäume mit Maßnahmen und Fristen als Tabelle. Was daraus ein
+        Angebot wird, entsteht in sevDesk.</div>
     </div>
   </div>
-
   </div>
-
-<!-- ================= ANGEBOTE ================= -->
-<div class="view" id="view-angebote">
-  <div class="hinweis" style="margin-bottom:12px">Aus den Befunden der laufenden Kontrolle. Die Positionen gehen nach sevDesk, dort entsteht das Angebot.</div>
-<div class="karte">
-    <h2>Angebotspositionen für sevDesk</h2>
-    <div class="inhalt">
-      <div id="angebotSumme"></div>
-      <div id="sevListe"></div>
-      <div class="btnreihe" style="margin-bottom:9px">
-        <button class="btn" onclick="App.sevKopieren()">Liste kopieren</button>
-        <button class="btn zweit" onclick="App.sevCsv()">Als CSV</button>
-      </div>
-      <div class="feld" style="margin-bottom:9px">
-        <label>Positionen bilden nach</label>
-        <select id="sevGruppierung" onchange="App.zeichneAusgabe()">
-          <option value="leistung">Leistung und Höhenklasse (wenige Positionen)</option>
-          <option value="baum">Baum einzeln (der Kunde sieht jeden Baum)</option>
-        </select>
-      </div>
-      <div class="hinweis">Die kopierte Liste ist mit Tabulatoren getrennt und lässt sich
-        direkt in eine Tabelle einfügen. sevDesk kann Angebote nicht per CSV importieren –
-        die Positionen müssen dort eingetragen werden.</div>
-    </div>
-  </div>
-
-  <div class="karte">
-    <h2 class="grau">Angebot als PDF</h2>
-    <div class="inhalt">
-      <button class="btn zweit" onclick="App.angebot()">Angebot als PDF</button>
-      <div class="hinweis">Falls du doch mal direkt aus der App heraus anbieten willst:
-        Positionen nach Dringlichkeit gruppiert, mit Zwischensummen für die Teilbeauftragung.
-        Preise stehen nie im Kontrollprotokoll – wer kontrolliert und ausführt, hält beides
-        besser getrennt.</div>
-    </div>
-  </div>
-
-  </div>
+ </div>
+</div>
 
 <!-- ================= KUNDEN ================= -->
 <div class="view" id="view-kunden">
@@ -319,7 +314,9 @@
 </div>
 
 <div class="view" id="view-einstellungen">
-<div class="karte">
+ <div class="zweispalten gleich">
+  <div class="sp1">
+  <div class="karte">
     <h2 class="grau">Sicherung</h2>
     <div class="inhalt">
       <button class="btn zweit" onclick="App.sicherungExport()">Sicherung speichern (JSON)</button>
@@ -341,20 +338,9 @@
     </div>
   </div>
 
-  <div class="karte">
-    <h2>Preise</h2>
-    <div class="inhalt">
-      <div class="hinweis" style="margin-bottom:10px">Netto je Baum, gestaffelt nach Höhenklasse.
-        Richtwerte – bitte auf die eigene Kalkulation anpassen.</div>
-      <button class="btn zweit" onclick="App.preisliste()">Preisliste bearbeiten</button>
-      <button class="btn zweit" onclick="App.sevProdukte()">Als sevDesk-Produkte (CSV)</button>
-      <div class="zeile" style="margin-top:9px">
-        <div class="feld"><label>Umsatzsteuer (%)</label><input type="number" id="e_ust" value="19"></div>
-        <div class="feld"><label>Stundensatz (€)</label><input type="number" id="e_stundensatz" value="85"></div>
-      </div>
-    </div>
   </div>
 
+  <div class="sp2">
   <div class="karte">
     <h2 class="grau">Papierkorb <span id="papierkorbZahl"></span></h2>
     <div id="papierkorbListe"></div>
@@ -382,6 +368,8 @@
         <br><br><b id="versionZeile"></b></div>
     </div>
   </div>
+  </div>
+ </div>
 </div>
 
 </main>

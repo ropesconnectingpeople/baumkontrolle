@@ -177,72 +177,11 @@ const AUS = path.join(__dirname, 'testausgabe');
   console.log('PDF:', download.suggestedFilename(), (fs.statSync(pdfPfad).size / 1024).toFixed(0) + ' KB');
 
   // ---------- Excel ----------
-  // ---------- Angebot ----------
-  const wert = await page.evaluate(() => App.auftragswert());
-  const anzPosten = await page.evaluate(() => App.posten().length);
-  console.log('Auftragswert:', wert.toFixed(2), '€ netto aus', anzPosten, 'Positionen');
-  if (!(wert > 0)) fehler.push('Auftragswert ist 0 – Preiszuordnung greift nicht');
-  if (anzPosten !== 4) fehler.push('Positionen: erwartet 4, gezählt ' + anzPosten);
-
-  // Angebot und sevDesk-Positionen sitzen seit Fassung 3 im eigenen Reiter
-  await page.click('#rtAngebote');
-  await page.waitForTimeout(300);
-  const dlA = page.waitForEvent('download', { timeout: 30000 });
-  await page.click('#view-angebote .btn >> text="Angebot als PDF"');
-  const dA = await dlA;
-  await dA.saveAs(path.join(AUS, 'angebot.pdf'));
-  console.log('Angebot:', dA.suggestedFilename(),
-    (fs.statSync(path.join(AUS, 'angebot.pdf')).size / 1024).toFixed(0) + ' KB');
-
-  // ---------- sevDesk-Positionen ----------
-  const sevL = await page.evaluate(() => App.sevPositionen());
-  console.log('sevDesk-Positionen (Leistung):', sevL.length);
-  sevL.forEach(p => console.log('   ' + p.menge + '× ' + p.text + '  je ' + p.einzel + ' €'));
-  if (sevL.length !== 3) fehler.push('sevDesk-Positionen: erwartet 3 zusammengefasste, gezählt ' + sevL.length);
-  const gebuendelt = sevL.filter(p => p.menge === 2);
-  if (gebuendelt.length !== 1)
-    fehler.push('Zusammenfassung greift nicht: keine Position mit Menge 2');
-  if (sevL.some(p => / veranlassen/.test(p.text)))
-    fehler.push('Katalogtext nicht geglättet: ' + sevL.map(p => p.text).join(' | '));
-
-  await page.selectOption('#sevGruppierung', 'baum');
-  await page.waitForTimeout(200);
-  const sevB = await page.evaluate(() => App.sevPositionen());
-  if (sevB.length !== 4) fehler.push('sevDesk je Baum: erwartet 4, gezählt ' + sevB.length);
-  if (!/Nr\. 001/.test(sevB[0].text)) fehler.push('Baumnummer fehlt im Positionstext: ' + sevB[0].text);
-  await page.selectOption('#sevGruppierung', 'leistung');
-  await page.waitForTimeout(200);
-
-  const kopf = await page.evaluate(() => App.sevText().split('\n')[0]);
-  if (!/Bezeichnung\tMenge\tEinheit/.test(kopf)) fehler.push('Kopfzeile der Kopierliste falsch: ' + kopf);
-
-  const dlC = page.waitForEvent('download', { timeout: 30000 });
-  await page.click('text=Als CSV');
-  const dC = await dlC;
-  await dC.saveAs(path.join(AUS, 'positionen.csv'));
-  console.log('CSV:', dC.suggestedFilename());
-
-  await page.evaluate(() => App.zeige('einstellungen'));
-  await page.waitForTimeout(250);
-  const dlP = page.waitForEvent('download', { timeout: 30000 });
-  await page.click('text=Als sevDesk-Produkte (CSV)');
-  const dP = await dlP;
-  await dP.saveAs(path.join(AUS, 'produkte.csv'));
-  console.log('Produkte:', dP.suggestedFilename());
-  await page.evaluate(() => App.zeige('ergebnisse'));
-  await page.waitForTimeout(250);
-
   const dl2 = page.waitForEvent('download', { timeout: 30000 });
   await page.click('text=Excel-Bestandsliste');
   const d2 = await dl2;
   await d2.saveAs(path.join(AUS, 'bestand.xlsx'));
   console.log('Excel:', d2.suggestedFilename());
-
-  const dl3 = page.waitForEvent('download', { timeout: 30000 });
-  await page.click('text=Kalkulation mit Preisen');
-  const d3 = await dl3;
-  await d3.saveAs(path.join(AUS, 'kalkulation.xlsx'));
-  console.log('Kalkulation:', d3.suggestedFilename());
 
   // ---------- Neuladen: bleiben die Daten? ----------
   await page.reload();
