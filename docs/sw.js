@@ -19,6 +19,12 @@ self.addEventListener('activate', function (e) {
    So startet die App auf der Baustelle auch ohne Empfang sofort. */
 self.addEventListener('fetch', function (e) {
   if (e.request.method !== 'GET') return;
+  /* Kartenkacheln kommen von fremden Servern und haben im Cache der App
+     nichts verloren: ein Tag Kartenarbeit waeren hunderte Megabyte, und wenn
+     der Speicher ueberlaeuft, wirft der Browser den ganzen Cache weg. Dann
+     startet die App auf der Baustelle nicht mehr. Der Browser haelt die
+     Kacheln ohnehin in seinem normalen Zwischenspeicher. */
+  if (e.request.url.indexOf(self.location.origin) !== 0) return;
   e.respondWith(
     caches.match(e.request).then(function (treffer) {
       var netz = fetch(e.request).then(function (antwort) {
