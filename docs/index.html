@@ -21,7 +21,19 @@
 html,body{margin:0;padding:0;background:var(--bg);color:var(--text);
   font:16px/1.4 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
   -webkit-text-size-adjust:100%;overscroll-behavior-y:none}
-body{padding-bottom:calc(12px + var(--safe-b))}
+body{padding-bottom:calc(74px + var(--safe-b))}
+body.ohnetabs{padding-bottom:calc(12px + var(--safe-b))}
+
+/* ---------- Reiter unten ---------- */
+.tabs{position:fixed;left:0;right:0;bottom:0;z-index:45;display:grid;
+  grid-template-columns:1fr 1fr 1fr;background:rgba(255,255,255,.97);
+  border-top:1px solid var(--rand);padding-bottom:var(--safe-b);
+  backdrop-filter:saturate(180%) blur(12px)}
+.tabs.aus{display:none}
+.tabs button{background:none;border:0;padding:9px 4px 8px;display:flex;flex-direction:column;
+  align-items:center;gap:3px;color:#8a8f8a;font-size:11px;font-weight:600;min-height:56px}
+.tabs button .zeichen{font-size:19px;line-height:1}
+.tabs button.aktiv{color:var(--gruen)}
 
 /* ---------- Kopfzeile ---------- */
 header{position:sticky;top:0;z-index:40;background:var(--gruen);color:#fff;
@@ -101,6 +113,14 @@ button{font-family:inherit;cursor:pointer}
 .leer .zeichen{font-size:40px;margin-bottom:8px;opacity:.35}
 
 /* ---------- Symptome ---------- */
+.symreiter{display:flex;overflow-x:auto;border-bottom:1px solid var(--rand);background:#f7f8f7;
+  -webkit-overflow-scrolling:touch}
+.symreiter button{flex:1;min-width:88px;background:none;border:0;border-bottom:2.5px solid transparent;
+  padding:11px 6px 9px;font-size:13px;font-weight:600;color:var(--weich);white-space:nowrap;
+  min-height:46px;display:flex;align-items:center;justify-content:center;gap:5px}
+.symreiter button.aktiv{color:var(--gruen);border-bottom-color:var(--gruen);background:#fff}
+.symreiter .anzahl{background:var(--rot);color:#fff;font-size:10.5px;padding:1px 6px;
+  border-radius:9px;font-weight:700;min-width:18px}
 .symgruppe{border-bottom:1px solid var(--rand)}
 .symgruppe:last-child{border-bottom:0}
 .symgruppe h3{margin:0;padding:10px 14px;font-size:13px;font-weight:700;background:#f7f8f7;
@@ -168,6 +188,34 @@ button{font-family:inherit;cursor:pointer}
 .wahl:active{background:var(--gruen-l)}
 .wahl b{display:block}
 .wahl span{font-size:12.5px;color:var(--weich)}
+
+/* ---------- Baumart: Eingabe mit Vorschlägen ----------
+   Kein Überblenden: Feld, Vorschläge und Tastatur müssen gleichzeitig
+   sichtbar bleiben. Die Liste schiebt den Rest nach unten, statt ihn zu
+   verdecken – .karte hat overflow:hidden, ein Overlay würde beschnitten. */
+.artchips{display:flex;gap:6px;overflow-x:auto;margin:0 0 7px;padding-bottom:2px;
+  -webkit-overflow-scrolling:touch;scrollbar-width:none}
+.artchips::-webkit-scrollbar{display:none}
+.artchips:empty{display:none}
+.artchips button{flex:0 0 auto;background:var(--gruen-l);color:var(--gruen);
+  border:1px solid #cfe0d4;border-radius:9px;padding:8px 11px;font-size:13.5px;
+  font-weight:700;white-space:nowrap;min-height:38px}
+.artchips button:active{background:#dde9e0}
+.artbot{font-size:12.5px;color:var(--weich);margin-top:4px;min-height:17px;font-style:italic}
+.artbot.frei{color:var(--orange);font-style:normal;font-weight:600}
+.artvor{border:1px solid var(--gruen);border-radius:10px;margin-top:6px;background:#fff;
+  max-height:38vh;overflow-y:auto;-webkit-overflow-scrolling:touch;
+  box-shadow:0 3px 14px rgba(0,0,0,.1)}
+.artvor[hidden]{display:none}
+.artvor .kopf{padding:7px 12px;font-size:10.5px;text-transform:uppercase;letter-spacing:.4px;
+  color:var(--weich);font-weight:700;background:#f7f8f7;border-bottom:1px solid var(--rand)}
+.artvor button{display:block;width:100%;text-align:left;background:#fff;border:0;
+  border-bottom:1px solid #eef0ee;padding:9px 12px;min-height:46px;font-size:15px}
+.artvor button:last-child{border-bottom:0}
+.artvor button:active{background:var(--gruen-l)}
+.artvor button b{display:block;font-weight:600}
+.artvor button span{font-size:12.5px;color:var(--weich);font-style:italic}
+.artvor .nix{padding:12px;font-size:13.5px;color:var(--weich)}
 
 /* ---------- Farbkacheln Kronensicherung ---------- */
 .farbgitter{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-bottom:12px}
@@ -249,10 +297,6 @@ table.mini tr:last-child td{border-bottom:0}
 
   <button class="btn" onclick="App.neuerBaum()">+ Baum aufnehmen</button>
   <button class="btn zweit" onclick="App.farbNachschlag()">Jahresfarbe Kronensicherung nachschlagen</button>
-  <div class="btnreihe">
-    <button class="btn zweit" onclick="App.zeige('ausgabe')">Ausgabe</button>
-    <button class="btn zweit" onclick="App.zeige('einstellungen')">Einstellungen</button>
-  </div>
 </div>
 
 <!-- ================= AUFTRAG ================= -->
@@ -262,6 +306,8 @@ table.mini tr:last-child td{border-bottom:0}
     <div class="inhalt">
       <div class="feld"><label>Auftraggeber</label><input id="a_auftraggeber" placeholder="Name oder Firma"></div>
       <div class="feld"><label>Objekt</label><input id="a_objekt" placeholder="z. B. Wohnanlage Prehnsweg 12–18"></div>
+      <button class="btn zweit" onclick="App.gpsObjekt()">Objektstandort per GPS übernehmen</button>
+      <div class="hinweis" id="objektGps" style="margin-bottom:11px"></div>
       <div class="zeile">
         <div class="feld"><label>Auftrags-Nr.</label><input id="a_auftragsNr"></div>
         <div class="feld"><label>Kontrollart</label><select id="a_kontrollart"></select></div>
@@ -318,9 +364,13 @@ table.mini tr:last-child td{border-bottom:0}
     <h2>Baum</h2>
     <div class="inhalt">
       <div class="feld"><label>Baum-Nr.</label><input id="b_nr"></div>
-      <div class="feld"><label>Baumart</label>
-        <button class="wahl" id="b_artKnopf" onclick="App.artWahl()">
-          <b id="b_artDt">Art wählen</b><span id="b_artBot"></span></button>
+      <div class="feld artfeld"><label>Baumart</label>
+        <div class="artchips" id="artChips" onmousedown="return false"></div>
+        <input id="b_artDt" placeholder="Art tippen, z. B. Eiche"
+               autocomplete="off" autocorrect="off" autocapitalize="words" spellcheck="false"
+               oninput="App.artTippen()" onfocus="App.artOeffnen()" onblur="App.artFertig()">
+        <div class="artvor" id="artVorschlaege" hidden onmousedown="return false"></div>
+        <div class="artbot" id="b_artBot"></div>
       </div>
       <div class="zeile drei">
         <div class="feld"><label>Höhe (m)</label><input type="number" id="b_hoehe" inputmode="decimal"></div>
@@ -585,6 +635,15 @@ table.mini tr:last-child td{border-bottom:0}
 </div>
 
 </main>
+
+<nav class="tabs" id="tabs">
+  <button id="tabListe" onclick="App.zeige('liste')">
+    <span class="zeichen">&#9651;</span>Bäume</button>
+  <button id="tabAusgabe" onclick="App.zeige('ausgabe')">
+    <span class="zeichen">&#8681;</span>Ausgabe</button>
+  <button id="tabEinstellungen" onclick="App.zeige('einstellungen')">
+    <span class="zeichen">&#9881;</span>Einstellungen</button>
+</nav>
 
 <div id="meldung"><span id="meldungText"></span><button id="meldungKnopf"></button></div>
 
@@ -1020,43 +1079,323 @@ var o=[];var l=Array.isArray(e);for(f=n.s.c;f<=n.e.c;++f)s[f]=ya(f);for(var c=n.
 var DATA = (function () {
   'use strict';
 
-  /* --- Baumarten. Deutsch, botanisch, Lebenserwartung in Jahren ----------- */
+  /* --- Baumarten ----------------------------------------------------------
+   * [ deutsch, botanisch, Lebenserwartung in Jahren, weitere Suchbegriffe ]
+   * Das vierte Feld ist reine Sucherleichterung: gebräuchliche Zweitnamen,
+   * unter denen im Feld gesucht wird („Akazie" für Robinie). Es steht nirgends
+   * im Protokoll. Sortiert wird beim Anzeigen, nicht hier.
+   * -------------------------------------------------------------------- */
   var ARTEN = [
-    ['Bergahorn', 'Acer pseudoplatanus', 300], ['Spitzahorn', 'Acer platanoides', 200],
-    ['Feldahorn', 'Acer campestre', 150], ['Silberahorn', 'Acer saccharinum', 130],
-    ['Eschenahorn', 'Acer negundo', 100], ['Rosskastanie', 'Aesculus hippocastanum', 200],
-    ['Rotblühende Rosskastanie', 'Aesculus × carnea', 150],
-    ['Schwarzerle', 'Alnus glutinosa', 120], ['Grauerle', 'Alnus incana', 100],
-    ['Sandbirke', 'Betula pendula', 100], ['Moorbirke', 'Betula pubescens', 100],
-    ['Hainbuche', 'Carpinus betulus', 150], ['Edelkastanie', 'Castanea sativa', 400],
-    ['Trompetenbaum', 'Catalpa bignonioides', 100], ['Zürgelbaum', 'Celtis australis', 200],
-    ['Blutbuche', 'Fagus sylvatica f. purpurea', 250], ['Rotbuche', 'Fagus sylvatica', 250],
-    ['Gemeine Esche', 'Fraxinus excelsior', 250], ['Blumenesche', 'Fraxinus ornus', 100],
-    ['Ginkgo', 'Ginkgo biloba', 500], ['Lederhülsenbaum', 'Gleditsia triacanthos', 120],
-    ['Walnuss', 'Juglans regia', 150], ['Goldregen', 'Laburnum anagyroides', 60],
-    ['Amberbaum', 'Liquidambar styraciflua', 150], ['Tulpenbaum', 'Liriodendron tulipifera', 200],
-    ['Apfel', 'Malus domestica', 80], ['Zierapfel', 'Malus spec.', 60],
-    ['Maulbeere', 'Morus alba', 150], ['Platane', 'Platanus × hispanica', 300],
-    ['Zitterpappel', 'Populus tremula', 80], ['Schwarzpappel', 'Populus nigra', 150],
-    ['Silberpappel', 'Populus alba', 120], ['Hybridpappel', 'Populus × canadensis', 80],
-    ['Süßkirsche', 'Prunus avium', 100], ['Traubenkirsche', 'Prunus padus', 80],
-    ['Blutpflaume', 'Prunus cerasifera Nigra', 60], ['Zierkirsche', 'Prunus serrulata', 60],
-    ['Stieleiche', 'Quercus robur', 600], ['Traubeneiche', 'Quercus petraea', 600],
-    ['Roteiche', 'Quercus rubra', 250], ['Sumpfeiche', 'Quercus palustris', 200],
-    ['Säuleneiche', 'Quercus robur Fastigiata', 300],
-    ['Robinie', 'Robinia pseudoacacia', 150], ['Silberweide', 'Salix alba', 100],
-    ['Salweide', 'Salix caprea', 60], ['Trauerweide', 'Salix × sepulcralis', 80],
-    ['Vogelbeere', 'Sorbus aucuparia', 100], ['Mehlbeere', 'Sorbus aria', 120],
-    ['Schwedische Mehlbeere', 'Sorbus intermedia', 100], ['Elsbeere', 'Sorbus torminalis', 200],
-    ['Winterlinde', 'Tilia cordata', 800], ['Sommerlinde', 'Tilia platyphyllos', 800],
-    ['Silberlinde', 'Tilia tomentosa', 300], ['Krimlinde', 'Tilia × euchlora', 200],
-    ['Bergulme', 'Ulmus glabra', 200], ['Feldulme', 'Ulmus minor', 200],
-    ['Weißtanne', 'Abies alba', 400], ['Europäische Lärche', 'Larix decidua', 400],
-    ['Fichte', 'Picea abies', 300], ['Waldkiefer', 'Pinus sylvestris', 400],
-    ['Schwarzkiefer', 'Pinus nigra', 400], ['Douglasie', 'Pseudotsuga menziesii', 400],
-    ['Eibe', 'Taxus baccata', 1000], ['Lebensbaum', 'Thuja occidentalis', 150],
-    ['Sumpfzypresse', 'Taxodium distichum', 400], ['Mammutbaum', 'Sequoiadendron giganteum', 1000]
+    /* --- Ahorn --- */
+    ['Bergahorn', 'Acer pseudoplatanus', 300, 'ahorn'],
+    ['Spitzahorn', 'Acer platanoides', 200, 'ahorn'],
+    ['Feldahorn', 'Acer campestre', 150, 'massholder ahorn'],
+    ['Silberahorn', 'Acer saccharinum', 130, 'ahorn'],
+    ['Rotahorn', 'Acer rubrum', 150, 'ahorn'],
+    ['Zuckerahorn', 'Acer saccharum', 200, 'ahorn'],
+    ['Eschenahorn', 'Acer negundo', 100, 'ahorn'],
+    ['Fächerahorn', 'Acer palmatum', 100, 'japanischer ahorn'],
+    ['Kugelahorn', 'Acer platanoides Globosum', 120, 'ahorn'],
+    ['Blutahorn', 'Acer platanoides Crimson King', 150, 'ahorn'],
+    ['Französischer Ahorn', 'Acer monspessulanum', 150, 'ahorn'],
+    ['Schlangenhaut-Ahorn', 'Acer capillipes', 80, 'ahorn'],
+    /* --- Kastanie --- */
+    ['Rosskastanie', 'Aesculus hippocastanum', 200, 'kastanie'],
+    ['Rotblühende Rosskastanie', 'Aesculus × carnea', 150, 'kastanie'],
+    ['Gelbe Rosskastanie', 'Aesculus flava', 150, 'kastanie'],
+    ['Edelkastanie', 'Castanea sativa', 400, 'esskastanie marone kastanie'],
+    /* --- Erle, Birke, Hainbuche --- */
+    ['Schwarzerle', 'Alnus glutinosa', 120, 'erle roterle'],
+    ['Grauerle', 'Alnus incana', 100, 'erle'],
+    ['Italienische Erle', 'Alnus cordata', 100, 'erle'],
+    ['Purpurerle', 'Alnus × spaethii', 100, 'erle'],
+    ['Sandbirke', 'Betula pendula', 100, 'birke haengebirke weissbirke'],
+    ['Moorbirke', 'Betula pubescens', 100, 'birke'],
+    ['Himalaja-Birke', 'Betula utilis', 80, 'birke'],
+    ['Schwarzbirke', 'Betula nigra', 100, 'birke'],
+    ['Hainbuche', 'Carpinus betulus', 150, 'weissbuche hagebuche'],
+    ['Säulenhainbuche', 'Carpinus betulus Fastigiata', 150, 'hainbuche'],
+    ['Hopfenbuche', 'Ostrya carpinifolia', 150, ''],
+    ['Baumhasel', 'Corylus colurna', 150, 'hasel'],
+    ['Haselnuss', 'Corylus avellana', 80, 'hasel'],
+    /* --- Buche --- */
+    ['Rotbuche', 'Fagus sylvatica', 250, 'buche'],
+    ['Blutbuche', 'Fagus sylvatica f. purpurea', 250, 'buche'],
+    ['Hängebuche', 'Fagus sylvatica Pendula', 200, 'buche'],
+    ['Säulenbuche', 'Fagus sylvatica Dawyck', 200, 'buche'],
+    /* --- Esche --- */
+    ['Gemeine Esche', 'Fraxinus excelsior', 250, 'esche'],
+    ['Blumenesche', 'Fraxinus ornus', 100, 'mannaesche esche'],
+    ['Schmalblättrige Esche', 'Fraxinus angustifolia', 150, 'esche'],
+    /* --- Eiche --- */
+    ['Stieleiche', 'Quercus robur', 600, 'eiche sommereiche'],
+    ['Traubeneiche', 'Quercus petraea', 600, 'eiche wintereiche'],
+    ['Roteiche', 'Quercus rubra', 250, 'eiche amerikanische eiche'],
+    ['Sumpfeiche', 'Quercus palustris', 200, 'eiche'],
+    ['Zerreiche', 'Quercus cerris', 250, 'eiche'],
+    ['Ungarische Eiche', 'Quercus frainetto', 250, 'eiche'],
+    ['Steineiche', 'Quercus ilex', 300, 'eiche'],
+    ['Säuleneiche', 'Quercus robur Fastigiata', 300, 'eiche'],
+    /* --- Linde --- */
+    ['Winterlinde', 'Tilia cordata', 800, 'linde'],
+    ['Sommerlinde', 'Tilia platyphyllos', 800, 'linde'],
+    ['Silberlinde', 'Tilia tomentosa', 300, 'linde'],
+    ['Krimlinde', 'Tilia × euchlora', 200, 'linde'],
+    ['Holländische Linde', 'Tilia × europaea', 400, 'linde'],
+    /* --- Ulme --- */
+    ['Bergulme', 'Ulmus glabra', 200, 'ulme'],
+    ['Feldulme', 'Ulmus minor', 200, 'ulme'],
+    ['Flatterulme', 'Ulmus laevis', 250, 'ulme'],
+    ['Resista-Ulme', 'Ulmus Resista', 150, 'ulme'],
+    /* --- Pappel, Weide --- */
+    ['Zitterpappel', 'Populus tremula', 80, 'espe aspe pappel'],
+    ['Schwarzpappel', 'Populus nigra', 150, 'pappel'],
+    ['Pyramidenpappel', 'Populus nigra Italica', 80, 'saeulenpappel pappel'],
+    ['Silberpappel', 'Populus alba', 120, 'pappel'],
+    ['Graupappel', 'Populus × canescens', 120, 'pappel'],
+    ['Hybridpappel', 'Populus × canadensis', 80, 'bastardpappel pappel'],
+    ['Balsampappel', 'Populus balsamifera', 80, 'pappel'],
+    ['Silberweide', 'Salix alba', 100, 'weide'],
+    ['Salweide', 'Salix caprea', 60, 'weide palmweide kaetzchenweide'],
+    ['Trauerweide', 'Salix × sepulcralis', 80, 'weide haengeweide'],
+    ['Bruchweide', 'Salix fragilis', 80, 'weide'],
+    ['Korbweide', 'Salix viminalis', 50, 'weide'],
+    /* --- Obst und Rosengewächse --- */
+    ['Apfel', 'Malus domestica', 80, 'apfelbaum'],
+    ['Zierapfel', 'Malus spec.', 60, 'apfel'],
+    ['Birne', 'Pyrus communis', 100, 'birnbaum'],
+    ['Stadtbirne', 'Pyrus calleryana Chanticleer', 80, 'chinesische wildbirne birne'],
+    ['Süßkirsche', 'Prunus avium', 100, 'vogelkirsche kirsche'],
+    ['Sauerkirsche', 'Prunus cerasus', 60, 'kirsche schattenmorelle'],
+    ['Zierkirsche', 'Prunus serrulata', 60, 'japanische bluetenkirsche kirsche'],
+    ['Traubenkirsche', 'Prunus padus', 80, 'kirsche'],
+    ['Späte Traubenkirsche', 'Prunus serotina', 100, 'kirsche'],
+    ['Mahagoni-Kirsche', 'Prunus serrula', 60, 'kirsche'],
+    ['Pflaume', 'Prunus domestica', 60, 'zwetschge'],
+    ['Kirschpflaume', 'Prunus cerasifera', 60, 'myrobalane'],
+    ['Blutpflaume', 'Prunus cerasifera Nigra', 60, 'blutpflaume'],
+    ['Aprikose', 'Prunus armeniaca', 50, 'marille'],
+    ['Pfirsich', 'Prunus persica', 40, ''],
+    ['Mandelbäumchen', 'Prunus triloba', 40, 'mandel'],
+    ['Kirschlorbeer', 'Prunus laurocerasus', 60, 'lorbeerkirsche'],
+    ['Quitte', 'Cydonia oblonga', 60, ''],
+    ['Mispel', 'Mespilus germanica', 80, ''],
+    ['Felsenbirne', 'Amelanchier lamarckii', 60, ''],
+    ['Weißdorn', 'Crataegus monogyna', 100, 'hagedorn'],
+    ['Rotdorn', 'Crataegus laevigata Pauls Scarlet', 80, 'weissdorn'],
+    ['Apfeldorn', 'Crataegus × lavallei Carrierei', 80, 'weissdorn'],
+    ['Vogelbeere', 'Sorbus aucuparia', 100, 'eberesche'],
+    ['Mehlbeere', 'Sorbus aria', 120, ''],
+    ['Schwedische Mehlbeere', 'Sorbus intermedia', 100, 'mehlbeere'],
+    ['Elsbeere', 'Sorbus torminalis', 200, ''],
+    ['Speierling', 'Sorbus domestica', 300, ''],
+    /* --- Übrige Laubbäume --- */
+    ['Platane', 'Platanus × hispanica', 300, 'ahornblaettrige platane'],
+    ['Robinie', 'Robinia pseudoacacia', 150, 'scheinakazie akazie falsche akazie'],
+    ['Kugelrobinie', 'Robinia pseudoacacia Umbraculifera', 100, 'akazie robinie'],
+    ['Walnuss', 'Juglans regia', 150, 'nussbaum'],
+    ['Schwarznuss', 'Juglans nigra', 200, 'nussbaum walnuss'],
+    ['Kaukasische Flügelnuss', 'Pterocarya fraxinifolia', 150, 'fluegelnuss'],
+    ['Schuppenrinden-Hickory', 'Carya ovata', 200, 'hickory'],
+    ['Ginkgo', 'Ginkgo biloba', 500, 'faecherblattbaum'],
+    ['Lederhülsenbaum', 'Gleditsia triacanthos', 120, 'gleditschie gleditsie'],
+    ['Kentucky-Geweihbaum', 'Gymnocladus dioicus', 150, 'geweihbaum'],
+    ['Schnurbaum', 'Styphnolobium japonicum', 150, 'sophora honigbaum japanischer schnurbaum'],
+    ['Bienenbaum', 'Tetradium daniellii', 100, 'stinkesche'],
+    ['Götterbaum', 'Ailanthus altissima', 100, ''],
+    ['Trompetenbaum', 'Catalpa bignonioides', 100, 'beamtenbaum katalpe'],
+    ['Zürgelbaum', 'Celtis australis', 200, ''],
+    ['Zelkove', 'Zelkova serrata', 200, 'japanische zelkove'],
+    ['Judasbaum', 'Cercis siliquastrum', 80, ''],
+    ['Blasenbaum', 'Koelreuteria paniculata', 100, 'blasenesche'],
+    ['Amberbaum', 'Liquidambar styraciflua', 150, ''],
+    ['Tulpenbaum', 'Liriodendron tulipifera', 200, ''],
+    ['Eisenholzbaum', 'Parrotia persica', 150, 'parrotie'],
+    ['Tupelobaum', 'Nyssa sylvatica', 150, ''],
+    ['Blauglockenbaum', 'Paulownia tomentosa', 80, 'kiribaum'],
+    ['Magnolie', 'Magnolia × soulangeana', 80, 'tulpenmagnolie'],
+    ['Sternmagnolie', 'Magnolia stellata', 60, 'magnolie'],
+    ['Maulbeere', 'Morus alba', 150, 'weisse maulbeere'],
+    ['Schwarze Maulbeere', 'Morus nigra', 200, 'maulbeere'],
+    ['Feige', 'Ficus carica', 80, ''],
+    ['Ölweide', 'Elaeagnus angustifolia', 60, 'schmalblaettrige oelweide'],
+    ['Essigbaum', 'Rhus typhina', 40, 'hirschkolbensumach sumach'],
+    ['Goldregen', 'Laburnum anagyroides', 60, ''],
+    ['Kornelkirsche', 'Cornus mas', 100, 'hartriegel'],
+    ['Japanischer Blütenhartriegel', 'Cornus kousa', 80, 'hartriegel'],
+    ['Perückenstrauch', 'Cotinus coggygria', 60, ''],
+    ['Holunder', 'Sambucus nigra', 60, 'flieder schwarzer holunder'],
+    ['Flieder', 'Syringa vulgaris', 60, ''],
+    ['Gemeine Stechpalme', 'Ilex aquifolium', 150, 'ilex huelse'],
+    /* --- Nadelbäume --- */
+    ['Weißtanne', 'Abies alba', 400, 'tanne'],
+    ['Nordmanntanne', 'Abies nordmanniana', 300, 'tanne'],
+    ['Nobilistanne', 'Abies procera', 250, 'edeltanne tanne'],
+    ['Koreatanne', 'Abies koreana', 150, 'tanne'],
+    ['Europäische Lärche', 'Larix decidua', 400, 'laerche'],
+    ['Japanische Lärche', 'Larix kaempferi', 250, 'laerche'],
+    ['Fichte', 'Picea abies', 300, 'rotfichte gemeine fichte'],
+    ['Blaufichte', 'Picea pungens Glauca', 150, 'stechfichte fichte'],
+    ['Serbische Fichte', 'Picea omorika', 200, 'omorika fichte'],
+    ['Sitkafichte', 'Picea sitchensis', 300, 'fichte'],
+    ['Waldkiefer', 'Pinus sylvestris', 400, 'kiefer foehre'],
+    ['Schwarzkiefer', 'Pinus nigra', 400, 'kiefer'],
+    ['Bergkiefer', 'Pinus mugo', 200, 'latsche krummholzkiefer kiefer'],
+    ['Weymouth-Kiefer', 'Pinus strobus', 250, 'kiefer'],
+    ['Zirbelkiefer', 'Pinus cembra', 500, 'arve zirbe kiefer'],
+    ['Douglasie', 'Pseudotsuga menziesii', 400, 'douglasfichte douglastanne'],
+    ['Eibe', 'Taxus baccata', 1000, ''],
+    ['Lebensbaum', 'Thuja occidentalis', 150, 'thuja'],
+    ['Riesenlebensbaum', 'Thuja plicata', 200, 'thuja'],
+    ['Scheinzypresse', 'Chamaecyparis lawsoniana', 150, 'zypresse'],
+    ['Leyland-Zypresse', 'Cupressocyparis leylandii', 100, 'zypresse'],
+    ['Echte Zypresse', 'Cupressus sempervirens', 300, 'zypresse'],
+    ['Wacholder', 'Juniperus communis', 200, ''],
+    ['Sumpfzypresse', 'Taxodium distichum', 400, 'zypresse'],
+    ['Urweltmammutbaum', 'Metasequoia glyptostroboides', 400, 'metasequoie mammutbaum'],
+    ['Bergmammutbaum', 'Sequoiadendron giganteum', 1000, 'mammutbaum riesenmammutbaum'],
+    ['Küstenmammutbaum', 'Sequoia sempervirens', 1000, 'mammutbaum'],
+    ['Atlaszeder', 'Cedrus atlantica', 300, 'zeder'],
+    ['Libanonzeder', 'Cedrus libani', 400, 'zeder'],
+    ['Himalaja-Zeder', 'Cedrus deodara', 300, 'zeder'],
+    ['Hemlocktanne', 'Tsuga canadensis', 300, 'schierlingstanne'],
+    ['Araukarie', 'Araucaria araucana', 300, 'schmucktanne affenschwanzbaum']
   ];
+
+  /* --- Artensuche ---------------------------------------------------------
+   * Im Feld wird einhändig getippt, mit Handschuh und mit der Autokorrektur
+   * im Nacken. Die Suche muss deshalb Mehrzahl und Beugung verzeihen:
+   * „Douglasien" findet die Douglasie. Dafür wird die Eingabe normalisiert
+   * (Umlaute aufgelöst, Sonderzeichen weg) und notfalls hinten gekürzt.
+   * -------------------------------------------------------------------- */
+  function artNorm(s) {
+    return String(s == null ? '' : s).toLowerCase()
+      .replace(/ä/g, 'ae').replace(/ö/g, 'oe').replace(/ü/g, 'ue').replace(/ß/g, 'ss')
+      .replace(/[^a-z0-9]+/g, ' ').replace(/\s+/g, ' ').trim();
+  }
+
+  /* --- Reihenfolge der Treffer --------------------------------------------
+   * Wer „Eiche" tippt, meint fast immer die Stieleiche und nicht die
+   * Ungarische Eiche. Diese Liste ist die Reihenfolge, in der die Arten im
+   * hiesigen Baumbestand tatsächlich vorkommen; sie zieht die Treffer nach
+   * vorn. Wer eine seltene Art sucht, tippt ohnehin genauer.
+   * -------------------------------------------------------------------- */
+  var HAEUFIG = [
+    'Rotbuche', 'Stieleiche', 'Winterlinde', 'Bergahorn', 'Spitzahorn', 'Sandbirke',
+    'Hainbuche', 'Gemeine Esche', 'Rosskastanie', 'Platane', 'Fichte', 'Waldkiefer',
+    'Douglasie', 'Robinie', 'Vogelbeere', 'Süßkirsche', 'Apfel', 'Walnuss',
+    'Silberweide', 'Schwarzerle', 'Traubeneiche', 'Sommerlinde', 'Roteiche',
+    'Feldahorn', 'Europäische Lärche', 'Weißtanne', 'Eibe', 'Lebensbaum',
+    'Trauerweide', 'Salweide', 'Zitterpappel', 'Hybridpappel', 'Blutbuche',
+    'Birne', 'Pflaume', 'Zierkirsche', 'Weißdorn', 'Holunder', 'Haselnuss',
+    'Blaufichte', 'Scheinzypresse', 'Kirschlorbeer', 'Ginkgo', 'Amberbaum',
+    'Feldulme', 'Mehlbeere', 'Zierapfel', 'Trompetenbaum', 'Silberlinde',
+    'Krimlinde', 'Lederhülsenbaum', 'Blutpflaume', 'Goldregen', 'Magnolie',
+    'Schwarzkiefer', 'Silberahorn', 'Eschenahorn'
+  ];
+  var RANG = {};
+  HAEUFIG.forEach(function (dt, i) { RANG[artNorm(dt)] = i; });
+
+  /* Jede Art einmal vorbereiten statt bei jedem Tastendruck neu. */
+  var ARTEN_INDEX = ARTEN.map(function (a, i) {
+    var nDt = artNorm(a[0]), r = RANG[nDt];
+    return {
+      i: i, dt: a[0], bot: a[1], leben: a[2],
+      nDt: nDt,
+      heu: artNorm(a[0] + ' ' + a[1] + ' ' + (a[3] || '')),
+      bonus: r === undefined ? 0 : -(120 - r * 2)
+    };
+  });
+
+  /** Findet ein Wort im Heuhaufen, notfalls um bis zu zwei Zeichen gekürzt. */
+  function wortTrifft(heu, wort) {
+    for (var k = 0; k < 3 && wort.length - k >= 3; k++) {
+      var p = heu.indexOf(wort.slice(0, wort.length - k));
+      if (p >= 0) return { pos: p, genau: k === 0 };
+    }
+    return wort.length < 3 ? (heu.indexOf(wort) >= 0 ? { pos: heu.indexOf(wort), genau: true } : null) : null;
+  }
+
+  /**
+   * @param {string} text  Eingabe des Kontrolleurs
+   * @param {number} max   Höchstzahl der Treffer
+   * @returns {Array} Arten in der Reihenfolge ihrer Passgenauigkeit
+   */
+  /* Zum Blättern ohne Suchbegriff: alphabetisch, nicht in Datenreihenfolge. */
+  var ARTEN_AZ = ARTEN_INDEX.slice().sort(function (x, y) {
+    return x.nDt < y.nDt ? -1 : (x.nDt > y.nDt ? 1 : 0);
+  });
+
+  function artFinden(text, max) {
+    var n = artNorm(text);
+    if (!n) return ARTEN_AZ.slice(0, max || ARTEN_AZ.length);
+    var worte = n.split(' '), treffer = [];
+
+    ARTEN_INDEX.forEach(function (a) {
+      var punkte = 0, alleDa = true;
+      for (var w = 0; w < worte.length; w++) {
+        var t = wortTrifft(a.heu, worte[w]);
+        if (!t) { alleDa = false; break; }
+        punkte += t.genau ? 0 : 12;                     /* gekürzt getroffen zählt schwächer */
+        punkte += Math.min(t.pos, 30);                  /* je weiter hinten, desto schwächer */
+        if (a.nDt.indexOf(worte[w]) === 0) punkte -= 40; /* deutscher Name fängt so an */
+      }
+      if (!alleDa) return;
+      punkte += a.bonus;                                 /* häufige Arten nach vorn */
+      punkte += a.dt.length / 20;                        /* sonst kurze Namen zuerst */
+      treffer.push({ p: punkte, a: a });
+    });
+
+    treffer.sort(function (x, y) { return x.p - y.p || x.a.i - y.a.i; });
+    if (treffer.length) {
+      return treffer.slice(0, max || treffer.length).map(function (t) { return t.a; });
+    }
+    return vertipper(n, max);           /* gar nichts? dann Tippfehler annehmen */
+  }
+
+  /**
+   * Zweiter Anlauf für vertippte Eingaben – „Waldkifer" soll die Waldkiefer
+   * finden. Erlaubt ist ein Fehler je acht Zeichen, mindestens einer.
+   * Läuft nur, wenn die normale Suche leer ausgeht, kostet also nichts.
+   */
+  function vertipper(n, max) {
+    var grenze = Math.max(1, Math.floor(n.length / 8)), gefunden = [];
+    ARTEN_INDEX.forEach(function (a) {
+      var d = abstand(n, a.nDt, grenze);
+      if (d <= grenze) gefunden.push({ d: d, a: a });
+    });
+    gefunden.sort(function (x, y) { return x.d - y.d || x.a.i - y.a.i; });
+    return gefunden.slice(0, max || gefunden.length).map(function (g) { return g.a; });
+  }
+
+  /** Levenshtein, abgebrochen sobald die Grenze gerissen ist. */
+  function abstand(a, b, grenze) {
+    if (Math.abs(a.length - b.length) > grenze) return grenze + 1;
+    var vor = [], jetzt = [], i, j;
+    for (j = 0; j <= b.length; j++) vor[j] = j;
+    for (i = 1; i <= a.length; i++) {
+      jetzt[0] = i;
+      var beste = i;
+      for (j = 1; j <= b.length; j++) {
+        jetzt[j] = Math.min(vor[j] + 1, jetzt[j - 1] + 1,
+                            vor[j - 1] + (a.charAt(i - 1) === b.charAt(j - 1) ? 0 : 1));
+        if (jetzt[j] < beste) beste = jetzt[j];
+      }
+      if (beste > grenze) return grenze + 1;
+      vor = jetzt.slice();
+    }
+    return vor[b.length];
+  }
+
+  /** Exakte Auflösung: gibt die Art zurück, wenn der Text genau passt. */
+  function artGenau(text) {
+    var n = artNorm(text);
+    if (!n) return null;
+    for (var i = 0; i < ARTEN_INDEX.length; i++) {
+      if (ARTEN_INDEX[i].nDt === n || artNorm(ARTEN_INDEX[i].bot) === n) return ARTEN_INDEX[i];
+    }
+    return null;
+  }
 
   /* --- Qualifikation des Kontrolleurs -------------------------------------
    * Es gibt keine gesetzliche Regelung, wer Baumkontrollen durchführen darf;
@@ -1110,13 +1449,23 @@ var DATA = (function () {
     return '2 Jahre';
   }
 
-  function intervallJahre(txt) {
-    if (/jähr/i.test(txt)) return 1;
+  /** Intervall in Monaten. Die FLL rechnet in Jahren; „halbjährlich" ist kein
+   *  Wert der Matrix, sondern eine bewusst verkürzte Festlegung des
+   *  Kontrolleurs – zum Beispiel bei einem Beobachtungsfall. */
+  function intervallMonate(txt) {
+    if (/halbjähr/i.test(txt)) return 6;
+    if (/vierteljähr/i.test(txt)) return 3;
+    if (/jähr/i.test(txt)) return 12;
     var m = /(\d+)/.exec(txt || '');
-    return m ? parseInt(m[1], 10) : 0;
+    return m ? parseInt(m[1], 10) * 12 : 0;
+  }
+
+  function intervallJahre(txt) {
+    return intervallMonate(txt) / 12;
   }
 
   function intervallGrundlage(txt) {
+    if (/halbjähr/i.test(txt)) return 'verkürztes Intervall, vom Kontrolleur festgelegt (Beobachtungsfall)';
     if (/jähr/i.test(txt))  return 'stärker geschädigt oder Alterungsphase bei höherer Sicherheitserwartung';
     if (/^2/.test(txt))     return 'Reifephase mit höherer bzw. Alterungsphase mit geringerer Sicherheitserwartung';
     if (/^3/.test(txt))     return 'Reifephase, geringere Sicherheitserwartung';
@@ -1125,24 +1474,27 @@ var DATA = (function () {
 
   /* --- Schadsymptomkatalog, gegliedert nach Baumteilen -------------------- */
   var SYMPTOME = {
-    K:  { titel: 'Krone', codes: [
+    K:  { titel: 'Krone', kurz: 'Krone', codes: [
       'Astab-/Astausbrüche', 'Astrisse', 'Astungswunden / -fäulen', 'baumfremder Bewuchs (z. B. Mistel)',
       'auffällige Belaubung', 'Fehlentwicklungen in der Krone', 'Höhlungen', 'Kappungsstellen',
       'vorhandene Kronensicherung', 'Lichtraumprofil', 'Pilzbefall', 'Rindenschäden',
       'Totholzbildung', 'Vergabelungen', 'Wipfeldürre', 'Zwiesel'] },
-    S:  { titel: 'Stamm', codes: [
+    S:  { titel: 'Stamm', kurz: 'Stamm', codes: [
       'Anfahrschäden', 'Astungswunden / Verletzungen', 'baumfremder Bewuchs', 'Fäulen',
       'Gewindestangen / Plomben', 'Höhlungen', 'Pilzbefall', 'Rindenschäden', 'Risse',
       'Schadinsekten (Bohrmehl)', 'Schrägstand nicht kompensiert', 'Stammaustriebe',
       'Wuchsanomalien', 'Zwiesel', 'eingewachsene Drähte / Schnüre'] },
-    W:  { titel: 'Stammfuß / Wurzelanlauf', codes: [
+    W:  { titel: 'Stammfuß / Wurzelanlauf', kurz: 'Stammfuß', codes: [
       'Adventiv-/Würgewurzeln', 'Bodenaufwölbungen / -risse / -auffüllungen', 'Höhlungen',
       'Pilzbefall', 'Rindenschäden', 'Risse', 'Stammfußverbreiterung', 'Stockaustriebe',
       'Wuchsanomalien'] },
-    Wu: { titel: 'Wurzelbereich', codes: ['Bodenaufwölbungen', 'Bodenrisse', 'Pilzbefall'] },
-    V:  { titel: 'Baumumfeld', codes: [
+    Wu: { titel: 'Wurzelbereich', kurz: 'Wurzel', codes: ['Bodenaufwölbungen', 'Bodenrisse', 'Pilzbefall'] },
+    V:  { titel: 'Baumumfeld', kurz: 'Umfeld', codes: [
       'Baugruben / -gräben', 'Bodenauftrag / -abtrag', 'Bodenverdichtung', 'Bodenversiegelung',
-      'Freistellung', 'Grundwasserabsenkung', 'Grundwasseranstau'] }
+      'Freistellung', 'Grundwasserabsenkung', 'Grundwasseranstau',
+      /* V8 und V9 nachgetragen – Codes werden angehängt, damit ältere
+         Erfassungen ihre Zuordnung behalten. */
+      'Bodenvernässung', 'Wurzelverletzungen'] }
   };
 
   /* --- Holzzersetzende Pilze mit Fäuletyp --------------------------------- */
@@ -1326,9 +1678,10 @@ var DATA = (function () {
     KS_BAUART: KS_BAUART, KS_VERBUND: KS_VERBUND, KS_BEWERTUNG: KS_BEWERTUNG,
     KS_MAENGEL: KS_MAENGEL,
     HOEHENKLASSEN: HOEHENKLASSEN, PREISE_STANDARD: PREISE_STANDARD,
-    intervall: intervall, intervallJahre: intervallJahre, intervallGrundlage: intervallGrundlage,
+    intervall: intervall, intervallJahre: intervallJahre, intervallMonate: intervallMonate, intervallGrundlage: intervallGrundlage,
     hoehenklasse: hoehenklasse, leistungstext: leistungstext, ksJahre: ksJahre, ksFarbeZuJahr: ksFarbeZuJahr,
-    ksBemessung: ksBemessung
+    ksBemessung: ksBemessung,
+    artFinden: artFinden, artGenau: artGenau, artNorm: artNorm
   };
 })();
 
@@ -1368,6 +1721,7 @@ var App = (function () {
       },
       baeume: [],
       papierkorb: [],
+      artenZuletzt: [],           // Schnellwahl im Baumart-Feld
       einstellungen: {
         name: 'Baumpflege Hundertmark',
         zusatz: 'Fachbetrieb für Baumpflege · Baumkontrolle · Verkehrssicherheit',
@@ -1390,10 +1744,10 @@ var App = (function () {
     return p.length === 3 ? p[2] + '.' + p[1] + '.' + p[0] : iso;
   }
 
-  function plusJahre(iso, jahre) {
-    if (!iso || !jahre) return '';
+  function plusMonate(iso, monate) {
+    if (!iso || !monate) return '';
     var d = new Date(iso);
-    d.setFullYear(d.getFullYear() + jahre);
+    d.setMonth(d.getMonth() + monate);
     return d.toISOString().slice(0, 10);
   }
 
@@ -1449,6 +1803,7 @@ var App = (function () {
         S = d;
         if (!S.papierkorb) S.papierkorb = [];
         if (!S.einstellungen) S.einstellungen = leererZustand().einstellungen;
+        if (!S.artenZuletzt) S.artenZuletzt = [];
       }
     } catch (e) {
       melde('Gespeicherte Daten konnten nicht gelesen werden.');
@@ -1515,6 +1870,16 @@ var App = (function () {
     if (name === 'liste')         { zeichneListe(); zeichneAuftragKurz(); }
     if (name === 'ausgabe')       zeichneAusgabe();
     if (name === 'einstellungen') { zeichneEinstellungen(); zeichnePapierkorb(); }
+
+    /* Reiter unten: im Baum-Detail und im Auftrag ausblenden, dort sitzen
+       die Speichern-Knöpfe am Seitenende. */
+    var mitTabs = (name === 'liste' || name === 'ausgabe' || name === 'einstellungen');
+    el('tabs').className = 'tabs' + (mitTabs ? '' : ' aus');
+    document.body.className = mitTabs ? '' : 'ohnetabs';
+    ['Liste', 'Ausgabe', 'Einstellungen'].forEach(function (t) {
+      var k = el('tab' + t);
+      if (k) k.className = (name === t.toLowerCase()) ? 'aktiv' : '';
+    });
 
     window.scrollTo(0, 0);
     if (!ohneHistorie) history.pushState({ view: name }, '', '');
@@ -1730,15 +2095,17 @@ var App = (function () {
     var b = S.baeume[i];
     if (!b) return;
 
-    ['nr','stammzahl','alter','hoehe','kroneD','kronenansatz','stammumfang','messhoehe',
+    ['nr','artDt','stammzahl','alter','hoehe','kroneD','kronenansatz','stammumfang','messhoehe',
      'lage','hausNr','flurstueck','umfeld','gpsLat','gpsLon','phase','zustand','erwartung',
      'roloff','intervall','befundtext','grenzen','bemerkung'].forEach(function (k) {
       setzeFeld('b_' + k, b[k]);
     });
     if (!b.lage && b.strasse) setzeFeld('b_lage', b.strasse);   /* aus früheren Fassungen */
-    el('b_artDt').textContent = b.artDt || 'Art wählen';
-    el('b_artBot').textContent = b.artBot || '';
+    artChips();
+    artStand();
+    artZu();
 
+    symGruppe = 'K';
     mehr('Baum', true);
     mehr('Ort', true);
     gpsAnzeige();
@@ -1759,12 +2126,19 @@ var App = (function () {
     if (aktuellerBaum == null) return null;
     var b = S.baeume[aktuellerBaum];
     if (!b) return null;
-    ['nr','stammzahl','alter','hoehe','kroneD','kronenansatz','stammumfang','messhoehe',
+    ['nr','artDt','stammzahl','alter','hoehe','kroneD','kronenansatz','stammumfang','messhoehe',
      'lage','hausNr','flurstueck','umfeld','gpsLat','gpsLon','phase','zustand','erwartung',
      'roloff','intervall','befundtext','grenzen','bemerkung'].forEach(function (k) {
       b[k] = feldWert('b_' + k);
     });
     delete b.strasse;
+
+    /* Der botanische Name wird immer aus dem deutschen abgeleitet, nie getippt.
+       So kann im Protokoll keine Kombination stehen, die es nicht gibt. */
+    b.artDt = String(b.artDt || '').trim();     /* die Tastatur hängt gern ein Leerzeichen an */
+    var art = DATA.artGenau(b.artDt);
+    b.artBot = art ? art.bot : '';
+    artMerken(b.artDt);
     b.intervallMatrix = feldWert('b_intervallMatrix');
     b.intervall = feldWert('b_intervall');
     b.naechsteKontrolle = el('b_naechsteKontrolle').dataset.iso || '';
@@ -1797,39 +2171,151 @@ var App = (function () {
     else { aktuellerBaum = null; zeige('liste'); }
   }
 
+  /**
+   * Der Service Worker hat eine neuere Fassung in den Cache gelegt.
+   * Neu geladen wird nur auf Zuruf und nur, wenn gerade kein Baum offen ist –
+   * ein Neustart mitten in der Erfassung würde die ungespeicherten Felder
+   * des laufenden Baums kosten.
+   */
+  function neueFassung() {
+    if (aktuellerBaum != null) {
+      melde('Neue Fassung geladen. Sie wird beim nächsten Start aktiv.', null, null, 7000);
+    } else {
+      melde('Neue Fassung geladen.', 'Jetzt neu starten', function () {
+        location.reload();
+      }, 12000);
+    }
+  }
+
   /* =========================================================================
    * Baumart
+   *
+   * Getippt wird direkt im Feld, die Treffer stehen unmittelbar darunter.
+   * Bewusst kein Überblenden: auf dem Telefon liegt die Tastatur sonst genau
+   * auf der Liste, und man tippt blind. Die Liste schiebt den Rest der Karte
+   * nach unten, statt ihn zu verdecken.
+   *
+   * Der botanische Name wird nicht getippt, sondern aus dem deutschen Namen
+   * abgeleitet (DATA.artGenau). Was sich nicht zuordnen lässt, bleibt Freitext
+   * und wird als solcher gekennzeichnet – im Protokoll steht dann nur der
+   * deutsche Name, aber nie ein falscher botanischer.
    * ====================================================================== */
-  function artWahl() {
-    var html = '<input id="artSuche" placeholder="Art suchen" style="margin-bottom:10px" ' +
-               'oninput="App.artFiltern(this.value)"><div id="artTreffer"></div>';
-    blendeAuf('Baumart', html);
-    artFiltern('');
-    setTimeout(function () { var s = el('artSuche'); if (s) s.focus(); }, 120);
+
+  /** Zeile unter dem Feld: botanischer Name oder Freitext-Hinweis. */
+  function artStand() {
+    var text = feldWert('b_artDt'), zeile = el('b_artBot'), g = DATA.artGenau(text);
+    if (!text) { zeile.textContent = ''; zeile.className = 'artbot'; return null; }
+    if (g) { zeile.textContent = g.bot; zeile.className = 'artbot'; }
+    else { zeile.textContent = 'Freitext – keine botanische Zuordnung'; zeile.className = 'artbot frei'; }
+    return g;
   }
 
-  function artFiltern(text) {
-    var t = String(text || '').toLowerCase(),
-        treffer = DATA.ARTEN.filter(function (a) {
-          return !t || a[0].toLowerCase().indexOf(t) >= 0 || a[1].toLowerCase().indexOf(t) >= 0;
-        }).slice(0, 60);
-    el('artTreffer').innerHTML = treffer.map(function (a) {
-      return '<button class="wahl" onclick="App.artSetzen(' + esc(JSON.stringify(a[0])) +
-             ',' + esc(JSON.stringify(a[1])) + ')"><b>' + esc(a[0]) + '</b>' +
-             '<span>' + esc(a[1]) + '</span></button>';
-    }).join('') + (t ? '<button class="wahl" onclick="App.artSetzen(' +
-      esc(JSON.stringify(text)) + ',\'\')"><b>' + esc(text) + '</b>' +
-      '<span>als Freitext übernehmen</span></button>' : '');
+  function artOeffnen() {
+    artListe(feldWert('b_artDt'));
+    /* Erst nach der Tastaturanimation: Feld unter die Kopfzeile ziehen,
+       damit Eingabe und Treffer zusammen im sichtbaren Rest stehen. */
+    setTimeout(artInsBild, 280);
   }
 
-  function artSetzen(dt, bot) {
-    el('b_artDt').textContent = dt;
-    el('b_artBot').textContent = bot || '';
-    if (aktuellerBaum != null) {
-      S.baeume[aktuellerBaum].artDt = dt;
-      S.baeume[aktuellerBaum].artBot = bot || '';
+  function artTippen() {
+    artStand();
+    artListe(feldWert('b_artDt'));
+  }
+
+  function artListe(text) {
+    var box = el('artVorschlaege'), treffer = DATA.artFinden(text, 40);
+    if (!treffer.length) {
+      box.innerHTML = '<div class="nix">Keine Art gefunden. „' + esc(text) +
+                      '" wird als Freitext übernommen.</div>';
+    } else {
+      box.innerHTML = (text ? '' : '<div class="kopf">Alle Arten A–Z</div>') +
+        treffer.map(function (a) {
+          return '<button type="button" onclick="App.artSetzen(' + a.i + ')"><b>' +
+                 esc(a.dt) + '</b><span>' + esc(a.bot) + '</span></button>';
+        }).join('');
     }
-    blendeZu();
+    box.hidden = false;
+    artHoehe();
+  }
+
+  function artInsBild() {
+    var f = el('b_artDt');
+    if (!f || el('artVorschlaege').hidden) return;
+    var feld = f.parentNode,
+        kopf = document.querySelector('header'),
+        hoch = kopf ? kopf.getBoundingClientRect().height : 0,
+        weg = feld.getBoundingClientRect().top - hoch - 6;
+    if (Math.abs(weg) > 6) window.scrollBy(0, weg);
+    artHoehe();
+  }
+
+  /**
+   * Die Liste darf nur den Platz nehmen, der über der Tastatur wirklich frei
+   * ist. vh rechnet auf dem Telefon mit dem ganzen Fenster und damit falsch;
+   * visualViewport kennt die tatsächlich sichtbare Höhe.
+   */
+  function artHoehe() {
+    var box = el('artVorschlaege');
+    if (!box || box.hidden) return;
+    var sicht = window.visualViewport ? window.visualViewport.height : window.innerHeight,
+        oben = box.getBoundingClientRect().top;
+    box.style.maxHeight = Math.max(132, sicht - oben - 10) + 'px';
+  }
+
+  function artZu() { el('artVorschlaege').hidden = true; }
+
+  function artSetzen(i) {
+    var a = DATA.ARTEN[i];
+    if (!a) return;
+    artUebernehmen(a[0]);
+  }
+
+  function artChip(dt) { artUebernehmen(dt); }
+
+  function artUebernehmen(dt) {
+    setzeFeld('b_artDt', dt);
+    artStand();
+    artZu();
+    var f = el('b_artDt');
+    if (f) f.blur();          /* Tastatur zu, damit die ganze Karte wieder sichtbar ist */
+  }
+
+  /** Beim Verlassen des Feldes die Schreibweise auf den Katalog ziehen. */
+  function artFertig() {
+    setTimeout(function () {
+      var g = DATA.artGenau(feldWert('b_artDt'));
+      if (g) setzeFeld('b_artDt', g.dt);   /* auch botanisch getippt → deutscher Name */
+      artStand();
+      artZu();
+    }, 150);
+  }
+
+  /**
+   * Schnellwahl über dem Feld. In einem Garten wiederholen sich die Arten;
+   * die zuletzt aufgenommenen zuerst, danach die aus früheren Aufträgen.
+   */
+  function artChips() {
+    var gesehen = {}, liste = [];
+    function rein(dt) {
+      var k = DATA.artNorm(dt);
+      if (!k || gesehen[k] || liste.length >= 8) return;
+      gesehen[k] = 1;
+      liste.push(dt);
+    }
+    for (var i = S.baeume.length - 1; i >= 0; i--) rein(S.baeume[i].artDt);
+    (S.artenZuletzt || []).forEach(rein);
+    el('artChips').innerHTML = liste.map(function (dt) {
+      return '<button type="button" onclick="App.artChip(' + esc(JSON.stringify(dt)) +
+             ')">' + esc(dt) + '</button>';
+    }).join('');
+  }
+
+  function artMerken(dt) {
+    if (!dt) return;
+    var k = DATA.artNorm(dt);
+    S.artenZuletzt = (S.artenZuletzt || []).filter(function (x) { return DATA.artNorm(x) !== k; });
+    S.artenZuletzt.unshift(dt);
+    S.artenZuletzt = S.artenZuletzt.slice(0, 12);
   }
 
   /* =========================================================================
@@ -1844,11 +2330,11 @@ var App = (function () {
         sel = el('b_intervall');
     if (!b || !b.intervallManuell) sel.value = vorschlag;
 
-    var jahre = DATA.intervallJahre(sel.value),
+    var monate = DATA.intervallMonate(sel.value),
         basis = S.auftrag.datum || heuteISO(),
         feld = el('b_naechsteKontrolle');
-    if (jahre) {
-      var iso = plusJahre(basis, jahre);
+    if (monate) {
+      var iso = plusMonate(basis, monate);
       feld.value = monatJahr(iso);
       feld.dataset.iso = iso;
     } else {
@@ -1865,24 +2351,36 @@ var App = (function () {
   /* =========================================================================
    * Symptome
    * ====================================================================== */
+  var symGruppe = 'K';
+
+  /** Die fünf Baumteile liegen hinter Reitern – ein Tipp statt 60 Zeilen Scrollen.
+   *  Die Zahl auf dem Reiter zeigt, wo schon Kreuze sitzen. */
   function zeichneSymptome(b) {
-    var box = el('symptome'), html = '';
-    Object.keys(DATA.SYMPTOME).forEach(function (g) {
-      var gruppe = DATA.SYMPTOME[g],
-          an = (b.befunde && b.befunde[g]) || [];
-      html += '<div class="symgruppe"><h3>' + esc(gruppe.titel) +
-              '<span class="anzahl" id="anz' + g + '" style="' +
-              (an.length ? '' : 'display:none') + '">' + an.length + '</span></h3>' +
-              '<div class="symliste">' +
-        gruppe.codes.map(function (bez, i) {
-          var code = g + (i + 1), gesetzt = an.indexOf(code) >= 0;
-          return '<label class="' + (gesetzt ? 'an' : '') + '" id="lab' + code + '">' +
-            '<input type="checkbox" ' + (gesetzt ? 'checked' : '') +
-            ' onchange="App.symptomWechsel(\'' + g + '\',\'' + code + '\',this.checked)">' +
-            esc(bez) + '</label>';
-        }).join('') + '</div></div>';
-    });
-    box.innerHTML = html;
+    var box = el('symptome'),
+        befunde = b.befunde || {},
+        reiter = Object.keys(DATA.SYMPTOME).map(function (g) {
+          var an = (befunde[g] || []).length;
+          return '<button class="' + (g === symGruppe ? 'aktiv' : '') +
+            '" onclick="App.symGruppe(\'' + g + '\')">' + esc(DATA.SYMPTOME[g].kurz || g) +
+            (an ? '<span class="anzahl">' + an + '</span>' : '') + '</button>';
+        }).join(''),
+        gruppe = DATA.SYMPTOME[symGruppe],
+        an = befunde[symGruppe] || [];
+
+    box.innerHTML = '<div class="symreiter">' + reiter + '</div>' +
+      '<div class="symgruppe"><div class="symliste">' +
+      gruppe.codes.map(function (bez, i) {
+        var code = symGruppe + (i + 1), gesetzt = an.indexOf(code) >= 0;
+        return '<label class="' + (gesetzt ? 'an' : '') + '" id="lab' + code + '">' +
+          '<input type="checkbox" ' + (gesetzt ? 'checked' : '') +
+          ' onchange="App.symptomWechsel(\'' + symGruppe + '\',\'' + code + '\',this.checked)">' +
+          esc(bez) + '</label>';
+      }).join('') + '</div></div>';
+  }
+
+  function symGruppeWechsel(g) {
+    symGruppe = g;
+    zeichneSymptome(S.baeume[aktuellerBaum] || {});
   }
 
   function symptomWechsel(gruppe, code, an) {
@@ -1896,9 +2394,7 @@ var App = (function () {
 
     var lab = el('lab' + code);
     if (lab) lab.className = an ? 'an' : '';
-    var anz = el('anz' + gruppe);
-    if (anz) { anz.textContent = liste.length; anz.style.display = liste.length ? '' : 'none'; }
-
+    zeichneSymptome(b);      /* aktualisiert die Zahlen auf den Reitern */
     zeichnePilz(b);
   }
 
@@ -2352,6 +2848,36 @@ var App = (function () {
   /* =========================================================================
    * GPS
    * ====================================================================== */
+  /** Objektstandort – hilft beim Wiederfinden der Anlage, nicht des Baumes. */
+  function gpsObjekt() {
+    if (!navigator.geolocation) { melde('Dieses Gerät liefert keine Position.'); return; }
+    melde('Position wird ermittelt …');
+    navigator.geolocation.getCurrentPosition(function (p) {
+      S.auftrag.gpsLat = p.coords.latitude.toFixed(5);
+      S.auftrag.gpsLon = p.coords.longitude.toFixed(5);
+      objektGpsAnzeige();
+      sichern();
+      melde('Objektstandort übernommen (± ' + Math.round(p.coords.accuracy) + ' m).');
+    }, function () {
+      melde('Position nicht verfügbar. Standortfreigabe prüfen.');
+    }, { enableHighAccuracy: true, timeout: 12000, maximumAge: 30000 });
+  }
+
+  function objektGpsAnzeige() {
+    var f = el('objektGps'), a = S.auftrag;
+    if (!f) return;
+    f.innerHTML = (a.gpsLat && a.gpsLon)
+      ? 'Erfasst: ' + esc(a.gpsLat) + ' N · ' + esc(a.gpsLon) + ' E' +
+        ' <button class="btn klein zweit" style="margin-left:6px;padding:4px 9px;min-height:30px" ' +
+        'onclick="App.gpsObjektWeg()">entfernen</button>'
+      : 'Noch kein Objektstandort erfasst.';
+  }
+
+  function gpsObjektWeg() {
+    S.auftrag.gpsLat = ''; S.auftrag.gpsLon = '';
+    objektGpsAnzeige(); sichern();
+  }
+
   function gpsAnzeige() {
     var lat = feldWert('b_gpsLat'), lon = feldWert('b_gpsLon'), f = el('gpsAnzeige');
     if (f) f.textContent = (lat && lon) ? ('Erfasst: ' + lat + ' N · ' + lon + ' E') : '';
@@ -2775,6 +3301,7 @@ var App = (function () {
     blendeZu();
     auftragSchreiben();
     richtungZeigen();
+    objektGpsAnzeige();
     zeige('liste');
     melde(alsFolge ? 'Folgekontrolle angelegt. Alle Bäume übernommen.' : 'Sicherung geladen.');
   }
@@ -2919,12 +3446,21 @@ var App = (function () {
     fuelleSelect('b_zustand', DATA.ZUSTAENDE);
     fuelleSelect('b_erwartung', DATA.ERWARTUNG);
     fuelleSelect('b_roloff', DATA.ROLOFF);
-    fuelleSelect('b_intervall', ['jährlich', '2 Jahre', '3 Jahre', 'keine gesonderte RK']);
+    fuelleSelect('b_intervall', ['halbjährlich', 'jährlich', '2 Jahre', '3 Jahre',
+                                 'keine gesonderte RK']);
 
     auftragSchreiben();
     richtungZeigen();
+    objektGpsAnzeige();
     zeichneAuftragKurz();
     zeichneListe();
+
+    /* Tastatur auf oder zu: die Vorschlagsliste neu einpassen. */
+    if (window.visualViewport) {
+      window.visualViewport.addEventListener('resize', function () {
+        if (!el('artVorschlaege').hidden) { artHoehe(); artInsBild(); }
+      });
+    }
 
     ['b_phase','b_zustand','b_erwartung'].forEach(function (id) {
       el(id).addEventListener('change', function () {
@@ -2993,11 +3529,14 @@ var App = (function () {
     start: start, zeige: zeige, zurueck: zurueck,
     neuerBaum: neuerBaum, baumOeffnen: baumOeffnen, baumSpeichern: baumSpeichern,
     loeschFrage: loeschFrage, baumLoeschen: baumLoeschen, zeichneListe: zeichneListe,
-    artWahl: artWahl, artFiltern: artFiltern, artSetzen: artSetzen,
-    symptomWechsel: symptomWechsel, grenzeAnfuegen: grenzeAnfuegen,
+    artOeffnen: artOeffnen, artTippen: artTippen, artSetzen: artSetzen,
+    artChip: artChip, artFertig: artFertig, neueFassung: neueFassung,
+    symptomWechsel: symptomWechsel, symGruppe: symGruppeWechsel,
+    grenzeAnfuegen: grenzeAnfuegen,
     massnahmeNeu: massnahmeNeu, massnahmeStufe: massnahmeStufe, massnahmeAnlegen: massnahmeAnlegen,
     massnahmeFeld: massnahmeFeld, massnahmeWeg: massnahmeWeg,
-    fotoWeg: fotoWeg, gps: gps, mehr: mehr, richtung: richtung,
+    fotoWeg: fotoWeg, gps: gps, gpsObjekt: gpsObjekt, gpsObjektWeg: gpsObjektWeg,
+    mehr: mehr, richtung: richtung,
     ksNeu: ksNeu, ksBearbeiten: ksBearbeiten, ksSpeichern: ksSpeichern, ksWeg: ksWeg,
     ksHersteller: ksHersteller, ksMangel: ksMangel, ksFarbeAendern: ksFarbeAendern,
     ksBemessung: ksBemessungAnzeige, farbNachschlag: farbNachschlag,
@@ -3422,6 +3961,53 @@ var PDF = (function () {
     }
   }
 
+  /**
+   * Fotoreihe im echten Seitenverhältnis.
+   *
+   * Vorher wurde jedes Bild in einen 45 × 16 mm flachen Kasten gezogen –
+   * aus einem Hochformat wurde dabei eine Litfaßsäule. Das Foto ist im
+   * Bericht ein Beweismittel; verzerrt taugt es dafür nicht. Alle Bilder
+   * bekommen deshalb dieselbe Höhe und ihre eigene Breite, und die Reihe
+   * wird so weit heruntergerechnet, bis sie auf die Seite passt.
+   */
+  function fotoBlock(doc, fotos, y, platzHoehe) {
+    fotos = (fotos || []).slice(0, 4);
+    if (!fotos.length) return y;                   /* keine leeren Kästen mehr */
+
+    var bilder = fotos.map(function (f) {
+      var v = 4 / 3;                               /* Notnagel, falls unlesbar */
+      try {
+        var p = doc.getImageProperties(f);
+        if (p && p.width && p.height) v = p.width / p.height;
+      } catch (e) { /* dann eben geschätzt */ }
+      return { daten: f, v: v };
+    });
+
+    var pad = 1.4, luecke = 2.0,
+        platzB = M.w - 2 * pad,
+        summeV = bilder.reduce(function (s, b) { return s + b.v; }, 0),
+        /* Höhe, bei der die Reihe genau die Breite ausfüllt */
+        hBreite = (platzB - luecke * (bilder.length - 1)) / summeV,
+        /* Höhe, die auf der Seite noch übrig ist */
+        hSeite = platzHoehe - 4.4 - 2 * pad - 1.2,
+        h = Math.min(hBreite, hSeite, 92);
+
+    if (h < 14) return y;                          /* dann lieber gar nicht */
+
+    var reihe = h * summeV + luecke * (bilder.length - 1),
+        x = M.l + (M.w - reihe) / 2;               /* mittig, sonst kippt die Seite */
+
+    y = blockTitel(doc, 'Fotodokumentation', y, true);
+    rect(doc, M.l, y, M.w, h + 2 * pad, null, C.linie);
+    bilder.forEach(function (b) {
+      var bw = h * b.v;
+      try { doc.addImage(b.daten, 'JPEG', x, y + pad, bw, h); } catch (e) { /* defekt */ }
+      rect(doc, x, y + pad, bw, h, null, [201, 205, 201], 0.15);
+      x += bw + luecke;
+    });
+    return y + h + 2 * pad;
+  }
+
   /** Blocktitel mit eigener Breite, für die zweispaltige Zeile. */
   function blockTitel2(doc, txt, y, x, w) {
     rect(doc, x, y, w, 4.4, C.grau, null);
@@ -3433,32 +4019,31 @@ var PDF = (function () {
    * Einzelblatt Seite 2 – Befund
    * ====================================================================== */
 
-  /* Schadsymptomkatalog nach FLL 2020, gegliedert nach Baumteilen. */
-  var KATALOG = {
-    K: ['Astab-/Astausbrüche','Astrisse','Astungswunden / -fäulen','baumfremder Bewuchs',
-        'auffällige Belaubung','Fehlentwicklungen','Höhlungen','Kappungsstellen',
-        'vorh. Kronensicherung','Lichtraumprofil','Pilzbefall','Rindenschäden',
-        'Totholzbildung','Vergabelungen','Wipfeldürre','Zwiesel'],
-    S: ['Anfahrschäden','Astungswunden','baumfremder Bewuchs','Fäulen','Gewindestangen / Plomben',
-        'Höhlungen','Pilzbefall','Rindenschäden','Risse','Schadinsekten / Bohrmehl',
-        'Schrägstand','Stammaustriebe','Wuchsanomalien','Zwiesel','eingew. Drähte / Schnüre'],
-    W: ['Adventiv-/Würgewurzeln','Bodenaufwölbungen','Höhlungen','Pilzbefall','Rindenschäden',
-        'Risse','Stammfußverbreiterung','Stockaustriebe','Wuchsanomalien'],
-    Wu:['Bodenaufwölbungen','Bodenrisse','Pilzbefall'],
-    V: ['Baugruben / -gräben','Bodenauftrag / -abtrag','Bodenverdichtung','Bodenversiegelung',
-        'Freistellung','Grundwasserabsenkung','Grundwasseranstau']
-  };
+  /* Der Schadsymptomkatalog liegt in 10_data.js. Eine zweite Kopie hier würde
+     früher oder später auseinanderlaufen. */
+  var KATALOG = (typeof DATA !== 'undefined' && DATA.SYMPTOME)
+    ? Object.keys(DATA.SYMPTOME).reduce(function (o, g) {
+        o[g] = DATA.SYMPTOME[g].codes; return o;
+      }, {})
+    : {};
 
   function symSpalte(doc, x, y, breite, titel, gruppe, codes, angekreuzt) {
     t(doc, titel.toUpperCase(), x + 1.6, y + 2.6, { size: 6.4, bold: true, color: C.gruen });
     line(doc, x + 1.6, y + 3.6, x + breite - 1.6, y + 3.6, [219, 228, 221]);
-    var yy = y + 6.4;
+    var yy = y + 6.4,
+        platz = breite - 6.4;
     codes.forEach(function (bez, i) {
       var code = gruppe + (i + 1),
           an = angekreuzt.indexOf(code) >= 0;
       checkbox(doc, x + 1.6, yy, an);
-      t(doc, bez, x + 4.8, yy, { size: 6.6, bold: an, color: an ? C.text : [153, 153, 153] });
-      yy += 2.95;
+      /* Lange Merkmale umbrechen, statt sie in die Nachbarspalte laufen zu lassen. */
+      doc.setFont('helvetica', an ? 'bold' : 'normal');
+      doc.setFontSize(6.6);
+      var zeilen = doc.splitTextToSize(String(bez), platz);
+      zeilen.forEach(function (z, zi) {
+        t(doc, z, x + 4.8, yy + zi * 2.4, { size: 6.6, bold: an, color: an ? C.text : [153, 153, 153] });
+      });
+      yy += 2.95 + (zeilen.length - 1) * 2.4;
     });
     return yy;
   }
@@ -3474,7 +4059,8 @@ var PDF = (function () {
     var e2 = symSpalte(doc, M.l + sw,     y, sw, 'Stamm (S1–S16)',  'S', KATALOG.S, bef.S || []);
     var e3 = symSpalte(doc, M.l + sw * 2, y, sw, 'Stammfuß / Wurzelanlauf (W1–W9)', 'W', KATALOG.W, bef.W || []);
     var e3b = symSpalte(doc, M.l + sw * 2, e3 + 1.2, sw, 'Wurzelbereich (Wu1–Wu3)', 'Wu', KATALOG.Wu, bef.Wu || []);
-    var e4 = symSpalte(doc, M.l + sw * 3, y, sw, 'Baumumfeld (V1–V7)', 'V', KATALOG.V, bef.V || []);
+    var e4 = symSpalte(doc, M.l + sw * 3, y, sw, 'Baumumfeld (V1–V' + (KATALOG.V || []).length + ')',
+                       'V', KATALOG.V, bef.V || []);
 
     /* Pilzbestimmung in der vierten Spalte unter dem Baumumfeld */
     if (b.pilz && b.pilz.name) {
@@ -3525,23 +4111,6 @@ var PDF = (function () {
     });
     y = doc.lastAutoTable.finalY + 2.4;
 
-    /* Fotos */
-    var fotos = MAP.fotos(b);
-    y = blockTitel(doc, 'Fotodokumentation', y, true);
-    var fh = 16, fx = M.l + 1.4, fw = (M.w - 2.8 - 3 * 1.4) / 4;
-    rect(doc, M.l, y, M.w, fh + 2.8, null, C.linie);
-    for (var i = 0; i < 4; i++) {
-      var x = fx + i * (fw + 1.4);
-      if (fotos[i]) {
-        try { doc.addImage(fotos[i], 'JPEG', x, y + 1.4, fw, fh); } catch (e) { /* defekt, dann leer */ }
-      } else {
-        rect(doc, x, y + 1.4, fw, fh, [236, 238, 236], [213, 216, 213], 0.15);
-      }
-    }
-    y += fh + 5.2;
-
-    /* Rechtstexte zweispaltig */
-    y = blockTitel(doc, 'Grundlagen, Methodik und Hinweise', y, true);
     var punkte = [
       ['Grundlage:', (a.kontrollart || 'Regelkontrolle') + ' gemäß FLL-Baumkontrollrichtlinien, 3. Ausgabe 2020. Rechtsgrundlage ist die Verkehrssicherungspflicht nach § 823 BGB.'],
       ['Methode:', 'Sichtkontrolle durch fachlich qualifizierte Inaugenscheinnahme vom Boden aus, Besichtigung des Baumes von allen Seiten. Es erfolgte keine eingehende Untersuchung im Sinne der FLL-Baumuntersuchungsrichtlinien.'],
@@ -3552,6 +4121,21 @@ var PDF = (function () {
       ['Artenschutz:', 'Vor Maßnahmen an Höhlen- und Habitatbäumen ist § 44 BNatSchG zu beachten. Weder Verkehrssicherung noch Artenschutz haben absoluten Vorrang.'],
       ['Aufbewahrung:', 'Die Dokumentation ist 5 Jahre ab der letzten Eintragung aufzubewahren.']
     ];
+
+    /* Rechtstexte und Unterschrift sitzen fest am unteren Seitenrand. Damit
+       steht die Unterschriftenzeile auf jedem Blatt an derselben Stelle – und
+       der ganze Rest der Seite gehört den Fotos. */
+    var fussH = rechtsBlock(doc, punkte, 0, true) + 4.4 + 3.2 + 7.4,
+        yFuss = Math.max(y, M.h - M.u - fussH),
+        fotos = MAP.fotos(b),
+        rest = yFuss - y;
+
+    /* Bei sehr ausführlich dokumentierten Bäumen ist die Seite voll. Dann
+       bekommen die Fotos hinterher ein eigenes Blatt, statt zu schrumpfen. */
+    var eigenesBlatt = fotos.length && rest < 30;
+    if (fotos.length && !eigenesBlatt) fotoBlock(doc, fotos, y, rest);
+
+    y = blockTitel(doc, 'Grundlagen, Methodik und Hinweise', yFuss, true);
     y = rechtsBlock(doc, punkte, y);
 
     /* Unterschrift */
@@ -3565,10 +4149,22 @@ var PDF = (function () {
       t(doc, p[0], x, y + 3.4, { size: 8, bold: true });
       t(doc, p[1], x, y + 6.4, { size: 6.4, color: C.weich });
     });
+
+    /* Erst jetzt, sonst landete der Fußbereich auf dem neuen Blatt. */
+    if (eigenesBlatt) {
+      doc.addPage();
+      var yf = kopf(doc, a.auftragsNr, 'Einzelblatt ' + MAP.baumNr(b) + ' · Fotos');
+      fotoBlock(doc, fotos, yf + 1.6, M.h - M.u - yf - 1.6);
+    }
   }
 
-  /** Nummerierte Rechtstexte in zwei Spalten. */
-  function rechtsBlock(doc, punkte, y) {
+  /**
+   * Nummerierte Rechtstexte in zwei Spalten.
+   * Mit nurMessen=true wird nichts gezeichnet, sondern nur die Höhe
+   * zurückgegeben – die braucht Seite 2, um den Fußbereich an den unteren
+   * Rand zu setzen und den Rest den Fotos zu geben.
+   */
+  function rechtsBlock(doc, punkte, y, nurMessen) {
     var pad = 1.8,
         sw = (M.w - 2 * pad - 4) / 2,
         haelfte = Math.ceil(punkte.length / 2),
@@ -3589,6 +4185,7 @@ var PDF = (function () {
     });
 
     var h = Math.max(hoehen[0], hoehen[1]) + 2 * pad;
+    if (nurMessen) return h;
     rect(doc, M.l, y, M.w, h, null, C.linie);
 
     gerendert.forEach(function (g) {
@@ -3639,6 +4236,7 @@ var PDF = (function () {
       ['Baumkontrolleur', a.kontrolleur + (a.qualifikationVoll ? ', ' + a.qualifikationVoll : '')],
       ['Berichtsdatum', a.berichtsdatum || a.datum]
     ];
+    if (a.gpsLat && a.gpsLon) daten.splice(1, 0, ['Objektstandort', a.gpsLat + ' N · ' + a.gpsLon + ' E']);
     daten.forEach(function (d, i) {
       var yy = dy + i * zh;
       rect(doc, dx, yy, lw, zh, [244, 246, 244], null);
@@ -4327,6 +4925,7 @@ var XLS = (function () {
       ['Kontrolldatum', a.datum + (a.datumBis ? ' bis ' + a.datumBis : '')],
       ['Belaubungszustand', a.belaubung],
       ['Erfassungsrichtung', a.erfassungsrichtung || '–'],
+      ['Objektstandort', (a.gpsLat && a.gpsLon) ? (a.gpsLat + ' N / ' + a.gpsLon + ' E') : '–'],
       ['Witterung', a.witterung],
       ['Baumkontrolleur', a.kontrolleur],
       ['Qualifikation', a.qualifikationVoll || a.qualifikation],
@@ -4523,6 +5122,24 @@ var XLS = (function () {
 if ('serviceWorker' in navigator && location.protocol.indexOf('http') === 0) {
   window.addEventListener('load', function () {
     navigator.serviceWorker.register('./sw.js').catch(function () {});
+  });
+  /* Meldungen des Service Workers werden bis zum Freischalten zwischengelagert;
+     ohne startMessages() ginge eine früh gesendete Nachricht verloren. */
+  navigator.serviceWorker.addEventListener('message', function (e) {
+    if (e.data && e.data.art === 'neueFassung' && window.App) App.neueFassung();
+  });
+  navigator.serviceWorker.startMessages();
+
+  /* Zweimal nachfragen: einmal sofort, einmal nachdem das Nachladen im
+     Hintergrund durch sein kann. Die App ist gross, das dauert. */
+  function nachfragen() {
+    navigator.serviceWorker.ready.then(function (r) {
+      if (r && r.active) r.active.postMessage({ art: 'fassungPruefen' });
+    }).catch(function () {});
+  }
+  window.addEventListener('load', function () {
+    setTimeout(nachfragen, 1500);
+    setTimeout(nachfragen, 6000);
   });
 }
 </script>
