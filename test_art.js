@@ -1,11 +1,11 @@
 /* Baumart-Eingabe: Suche, Mehrzahl, Tippfehler, Freitext, zuletzt genutzte Arten. */
-const { chromium } = require('/home/claude/node_modules/playwright');
+const { chromium } = require('playwright');
 const path = require('path');
 
 const DATEI = 'file://' + path.join(__dirname, 'Baumkontrolle.html');
 
 (async () => {
-  const browser = await chromium.launch({ executablePath: '/opt/pw-browsers/chromium-1194/chrome-linux/chrome' });
+  const browser = await chromium.launch();
   const page = await (await browser.newContext({ viewport: { width: 430, height: 932 } })).newPage();
 
   const fehler = [];
@@ -61,8 +61,10 @@ const DATEI = 'file://' + path.join(__dirname, 'Baumkontrolle.html');
   await page.waitForTimeout(250);
   if (!await page.isVisible('#artVorschlaege')) fehler.push('Vorschläge öffnen nicht beim Antippen');
   if (await page.isVisible('.blende.an')) fehler.push('Baumart öffnet noch eine Einblendung');
-  const feldKasten = await page.locator('#b_artDt').boundingBox();
-  const listKasten = await page.locator('#artVorschlaege').boundingBox();
+  // Beide Kästen im selben Augenblick messen: das Antippen scrollt das Feld
+  // weich nach oben, zwei getrennte Messungen erwischen es mitten im Weg.
+  const [feldKasten, listKasten] = await page.evaluate(() =>
+    ['b_artDt', 'artVorschlaege'].map(id => document.getElementById(id).getBoundingClientRect().toJSON()));
   if (listKasten.y < feldKasten.y + feldKasten.height - 2) fehler.push('Vorschlagsliste liegt über dem Feld');
 
   // Mehrzahl eintippen, ersten Treffer nehmen

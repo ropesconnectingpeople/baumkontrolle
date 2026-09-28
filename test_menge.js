@@ -1,11 +1,11 @@
 /* Haelt die Ablage eine Kontrolle mit vielen Fotos aus? Frueher war bei 4 MB Schluss. */
-const { chromium } = require('/home/claude/node_modules/playwright');
+const { chromium } = require('playwright');
 (async () => {
-  const browser = await chromium.launch({ executablePath: '/opt/pw-browsers/chromium-1194/chrome-linux/chrome' });
+  const browser = await chromium.launch();
   const page = await (await browser.newContext()).newPage();
   const fehler = [];
   page.on('pageerror', e => fehler.push('PAGEERROR: ' + e.message));
-  await page.goto('file:///home/claude/bk/Baumkontrolle.html');
+  await page.goto('file://' + require('path').join(__dirname, 'Baumkontrolle.html'));
   await page.waitForTimeout(700);
 
   const mb = await page.evaluate(async () => {

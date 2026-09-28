@@ -4,13 +4,13 @@
  * sieht es draußen im Funkloch aus: graue Fläche, Marken stehen trotzdem.
  * Wenn die Karte das nicht aushält, taugt sie für die Baustelle nicht.
  */
-const { chromium } = require('/home/claude/node_modules/playwright');
+const { chromium } = require('playwright');
 const path = require('path');
 
 const DATEI = 'file://' + path.join(__dirname, 'Baumkontrolle.html');
 
 (async () => {
-  const browser = await chromium.launch({ executablePath: '/opt/pw-browsers/chromium-1194/chrome-linux/chrome' });
+  const browser = await chromium.launch();
   const ctx = await browser.newContext({ viewport: { width: 430, height: 932 } });
   await ctx.route('**arcgisonline.com**', r => r.abort());
   await ctx.route('**tile.openstreetmap.org**', r => r.abort());

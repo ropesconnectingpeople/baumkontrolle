@@ -4,7 +4,7 @@
  * wird gerendert und die Bildkante im Pixelbild gesucht. Nur so fällt auf,
  * wenn ein Hochformat wieder in die Breite gezogen wird.
  */
-const { chromium } = require('/home/claude/node_modules/playwright');
+const { chromium } = require('playwright');
 const { execFileSync } = require('child_process');
 const path = require('path');
 const fs = require('fs');
@@ -35,7 +35,7 @@ print(0 if x1 < 0 else (x1 - x0 + 1) * 210.0 / W, (0 if y1 < 0 else (y1 - y0 + 1
 
 (async () => {
   fs.mkdirSync(AUS, { recursive: true });
-  const browser = await chromium.launch({ executablePath: '/opt/pw-browsers/chromium-1194/chrome-linux/chrome' });
+  const browser = await chromium.launch();
   const page = await (await browser.newContext()).newPage();
   const fehler = [];
   page.on('pageerror', e => fehler.push('PAGEERROR: ' + e.message));

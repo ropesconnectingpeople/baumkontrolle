@@ -1,14 +1,14 @@
 /* Mehrere Auftraege nebeneinander: anlegen, umschalten, ueberleben Neuladen. */
-const { chromium } = require('/home/claude/node_modules/playwright');
+const { chromium } = require('playwright');
 const path = require('path');
 (async () => {
-  const browser = await chromium.launch({ executablePath: '/opt/pw-browsers/chromium-1194/chrome-linux/chrome' });
+  const browser = await chromium.launch();
   const ctx = await browser.newContext({ viewport: { width: 390, height: 844 } });
   const page = await ctx.newPage();
   const fehler = [];
   page.on('pageerror', e => fehler.push('PAGEERROR: ' + e.message));
   page.on('console', m => { if (m.type() === 'error') fehler.push('CONSOLE: ' + m.text()); });
-  await page.goto('file://' + path.join('/home/claude/bk', 'Baumkontrolle.html'));
+  await page.goto('file://' + path.join(__dirname, 'Baumkontrolle.html'));
   await page.waitForTimeout(700);
 
   async function auftragFuellen(objekt, arten) {

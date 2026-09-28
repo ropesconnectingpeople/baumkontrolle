@@ -1,5 +1,5 @@
 /* Vollerfassung: Auftrag, zwei Bäume, PDF und Excel. */
-const { chromium } = require('/home/claude/node_modules/playwright');
+const { chromium } = require('playwright');
 const path = require('path');
 const fs = require('fs');
 
@@ -8,7 +8,7 @@ const AUS = path.join(__dirname, 'testausgabe');
 
 (async () => {
   fs.mkdirSync(AUS, { recursive: true });
-  const browser = await chromium.launch({ executablePath: '/opt/pw-browsers/chromium-1194/chrome-linux/chrome' });
+  const browser = await chromium.launch();
   const ctx = await browser.newContext({ acceptDownloads: true, viewport: { width: 430, height: 932 } });
   const page = await ctx.newPage();
 

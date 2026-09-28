@@ -1,5 +1,5 @@
 /* Prüft die gehostete Fassung: Offline-Start, Speicher, Installierbarkeit. */
-const { chromium } = require('/home/claude/node_modules/playwright');
+const { chromium } = require('playwright');
 const path = require('path');
 const http = require('http');
 const fs = require('fs');
@@ -21,7 +21,7 @@ const server = http.createServer((req, res) => {
 
 (async () => {
   await new Promise(r => server.listen(PORT, r));
-  const browser = await chromium.launch({ executablePath: '/opt/pw-browsers/chromium-1194/chrome-linux/chrome' });
+  const browser = await chromium.launch();
   const ctx = await browser.newContext({ viewport: { width: 430, height: 932 } });
   const page = await ctx.newPage();
   const fehler = [];
